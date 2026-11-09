@@ -241,6 +241,35 @@ function ns:UpdateMapButton()
 	end
 end
 
+---------------------------------------------------------------------------
+-- Addon compartment (the minimap's addon list button, which EllesmereUI also
+-- shows). Registered through the TOC's AddonCompartmentFunc* fields, so these
+-- must be globals. Blizzard passes the mouse button second; the first argument
+-- is the addon name or the menu entry frame depending on the call.
+---------------------------------------------------------------------------
+function VeinKeeper_OnCompartmentClick(_, mouseButton)
+	if mouseButton == "RightButton" then
+		ns:ToggleAllPins()
+	else
+		ns:ToggleSettings()
+	end
+end
+
+function VeinKeeper_OnCompartmentEnter(addonOrFrame, frame)
+	local owner = type(addonOrFrame) == "table" and addonOrFrame or frame
+	if type(owner) ~= "table" then return end
+	GameTooltip:SetOwner(owner, "ANCHOR_LEFT")
+	GameTooltip:AddLine("VeinKeeper")
+	GameTooltip:AddLine(#ns.db.spots .. " spots saved", 1, 1, 1)
+	GameTooltip:AddLine("Left-click: settings", 0.7, 0.7, 0.7)
+	GameTooltip:AddLine("Right-click: show / hide all pins", 0.7, 0.7, 0.7)
+	GameTooltip:Show()
+end
+
+function VeinKeeper_OnCompartmentLeave()
+	GameTooltip:Hide()
+end
+
 function ns:OnLogin()
 	self:UpdateMinimapButton()
 	self:UpdateMapButton()
