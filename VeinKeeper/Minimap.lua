@@ -13,6 +13,7 @@ local TICK = 0.1
 local RESCAN_YARDS = 100
 local VIEW_YARDS = 300   -- more than the widest minimap radius (~233 yd)
 local RIM_INSET = 7      -- px between a rim pin's centre and the minimap edge
+local HOVER_SLOP_PX = 12 -- a dot's tooltip shows with the cursor this far away
 local FIND_MINERALS = 2580
 -- minimap diameter in yards per zoom level (the values HereBeDragons uses)
 local OUTDOOR = { [0] = 466 + 2 / 3, 400, 333 + 1 / 3, 266 + 2 / 3, 200, 133 + 1 / 3 }
@@ -288,7 +289,8 @@ local function CheckHover()
 	end
 	local nwx, nwy = ns:Offset(b, wx, wy, x, -y)
 	local nx, ny = ns:WorldToMap(b, nwx, nwy)
-	for _, name in ipairs(names) do ns:RecordSeen(name, nwx, nwy, inst, mapID, nx, ny) end
+	local slop = HOVER_SLOP_PX / scale -- yards the cursor can be off the dot
+	for _, name in ipairs(names) do ns:RecordSeen(name, nwx, nwy, inst, mapID, nx, ny, slop) end
 end
 
 ---------------------------------------------------------------------------
