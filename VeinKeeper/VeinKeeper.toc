@@ -3,7 +3,7 @@
 ## Notes: Remembers every ore vein you mine and shows it on your world map and minimap, with respawn timers.
 ## Version: 1.2.1
 ## SavedVariables: VeinKeeperDB
-## IconTexture: Interface\Icons\Trade_Mining
+## IconTexture: Interface\AddOns\VeinKeeper\Icons\logo
 ## AddonCompartmentFunc: VeinKeeper_OnCompartmentClick
 ## AddonCompartmentFuncOnEnter: VeinKeeper_OnCompartmentEnter
 ## AddonCompartmentFuncOnLeave: VeinKeeper_OnCompartmentLeave

@@ -1,6 +1,10 @@
+<p align="center"><img src=".github/icon.png" width="128" alt="VeinKeeper icon"></p>
+
 # VeinKeeper
 
 A lightweight World of Warcraft: Forever addon (1.60.1, interface 16001) that remembers every ore vein you find and shows it on your world map and minimap, with respawn timers.
+
+<p align="center"><img src=".previews/world-map.png" width="560" alt="Saved veins on the world map, with a spot's tooltip"></p>
 
 ## Features
 
@@ -45,6 +49,8 @@ A lightweight World of Warcraft: Forever addon (1.60.1, interface 16001) that re
 | `VeinKeeper/Commands.lua` | Slash commands. |
 | `VeinKeeper/Bindings.xml` | Key bindings. |
 | `VeinKeeper/Icons/` | Generated 64x64 TGA icons. |
+| `make_logo.py` | Builds the logo files (README icon, GitHub social preview, in-game `Icons/logo.tga`) from `art/logo-source.png`. |
+| `.previews/` | Screenshots the WowUp Hub shows for each release. |
 | `make_icons.py` | Draws the icons and `icon-preview.png` (needs Pillow). |
 | `build.py` | Builds `VeinKeeper.zip`; `--install` copies the addon into the Forever AddOns folder; `--release <version>` builds the release files in `dist/`. |
 | `CHANGELOG.md` | Release notes; each release's section becomes its GitHub release notes. |

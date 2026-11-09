@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+**Changed**
+- VeinKeeper has its own icon in the addon list and the addon compartment.
+
 ## 1.2.1
 
 **Fixed**
