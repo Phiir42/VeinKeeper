@@ -12,7 +12,7 @@ A lightweight World of Warcraft: Forever (1.60.1, interface 16001) addon that re
 - With Find Minerals on, hovering a vein's yellow dot on the minimap saves it too (blue ring: seen, never mined), placed from the cursor's position on the minimap, so within a few yards. Hovering a known spot's dot marks it as up. `/vk seen` turns this off.
 - `/vk next` (or a key under Key Bindings > AddOns) puts a waypoint on the nearest spot that has likely respawned. Press it again at a spot that turned out empty and it skips that one.
 - Ore filter (right-click the world map button, the settings window, or `/vk only thorium`): show just one ore, all its vein types together, on both maps.
-- Minimap edge arrows point only at spots likely respawned (can be turned off in settings).
+- Minimap edge arrows point only at spots likely respawned (can be turned off in settings) and within 500 yd (adjustable, 100-2500).
 - `/vk prune [days]` deletes spots visited only once and not seen for 30 (or [days]) days.
 
 - Settings window (`/vk`, the minimap button, or the button in the top-right of the world map): world map and minimap pin opacity and icon size, respawn timer, edge pins, Find Minerals mode, icon style, and the buttons themselves.

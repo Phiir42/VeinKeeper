@@ -198,7 +198,7 @@ local function px(v) return v .. " px" end
 
 local function CreatePanel()
 	panel = CreateFrame("Frame", "VeinKeeperSettings", UIParent, "BasicFrameTemplateWithInset")
-	panel:SetSize(330, 692)
+	panel:SetSize(330, 734)
 	panel:SetPoint("CENTER")
 	panel:SetFrameStrata("DIALOG")
 	panel:SetToplevel(true)
@@ -237,8 +237,10 @@ local function CreatePanel()
 		function(v) return v .. " min" end, same, same, restyle)
 	Slider(panel, "Far spots shown on the minimap edge", "edgeCount", y - 210, 0, 10, 1,
 		tostring, same, same)
+	Slider(panel, "Edge: hide spots further than", "edgeMaxYards", y - 252, 100, 2500, 50,
+		function(v) return v .. " yd" end, same, same)
 
-	y = y - 250
+	y = y - 292
 	Check(panel, "Edge: only spots likely respawned", "edgeReadyOnly", y)
 
 	y = y - 38

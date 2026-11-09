@@ -199,11 +199,14 @@ local function Update()
 						used = used + 1
 						Place(GetPin(used), spot, x * scale, y * scale, nil, ringOnly)
 					end
-				elseif not s.edgeReadyOnly or select(4, ns:Freshness(spot)) then
-					nEdge = nEdge + 1
-					local e = edge[nEdge] or {}
-					edge[nEdge] = e
-					e.spot, e.x, e.y, e.d = spot, x, y, sqrt(x * x + y * y)
+				else
+					local d = sqrt(x * x + y * y)
+					if d <= s.edgeMaxYards and (not s.edgeReadyOnly or select(4, ns:Freshness(spot))) then
+						nEdge = nEdge + 1
+						local e = edge[nEdge] or {}
+						edge[nEdge] = e
+						e.spot, e.x, e.y, e.d = spot, x, y, d
+					end
 				end
 			end
 

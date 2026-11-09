@@ -21,6 +21,7 @@ local DEFAULTS = {
 	worldSize = 18,     -- world map icon size in pixels (before map zoom scaling)
 	minimapSize = 14,   -- minimap icon size in pixels
 	edgeReadyOnly = true, -- minimap edge arrows only point at spots likely respawned
+	edgeMaxYards = 500, -- no edge arrow for spots further away than this
 	only = false,       -- ore filter: an ore item ID (or node name for nodes without one); false = all
 	recordSeen = true,  -- save veins whose Find Minerals dot you hover on the minimap
 }
