@@ -34,6 +34,7 @@ local function GetPin(i)
 	local p = pins[i]
 	if p then return p end
 	p = CreateFrame("Frame", nil, Minimap)
+	p.isMinimap = true
 	p:SetSize(14, 14)
 	p:SetFrameLevel(Minimap:GetFrameLevel() + 5)
 	ns:CreatePinTextures(p)
@@ -187,11 +188,19 @@ trackWatch:RegisterEvent("PLAYER_ENTERING_WORLD")
 trackWatch:SetScript("OnEvent", UpdateTracking)
 
 ---------------------------------------------------------------------------
--- Minimap button: left-click toggles all pins, right-click minimap pins, drag to move
+-- Minimap button: left-click opens settings, right-click toggles all pins,
+-- drag to move. It's a named Button parented to Minimap, so minimap button
+-- collectors (EllesmereUI's flyout, MinimapButtonButton, ...) pick it up.
+-- Once a collector has re-parented it, VeinKeeper leaves its position alone.
 ---------------------------------------------------------------------------
 local button
 
+local function OwnedByMinimap()
+	return button and button:GetParent() == Minimap
+end
+
 local function PlaceButton()
+	if not OwnedByMinimap() then return end
 	local a = math.rad(ns.db.settings.buttonAngle)
 	local r = Minimap:GetWidth() / 2 + 5
 	button:ClearAllPoints()
@@ -216,34 +225,31 @@ local function CreateButton()
 	icon:SetSize(18, 18)
 	icon:SetPoint("CENTER")
 	icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+	button.icon = icon
 	local border = button:CreateTexture(nil, "OVERLAY")
 	border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
 	border:SetSize(53, 53)
 	border:SetPoint("TOPLEFT")
 
 	button:SetScript("OnClick", function(_, btn)
-		local s = ns.db.settings
 		if btn == "RightButton" then
-			s.minimapPins = not s.minimapPins
-			ns:Print("minimap pins %s.", s.minimapPins and "on" or "off")
+			ns:ToggleAllPins()
 		else
-			local on = not (s.worldPins or s.minimapPins)
-			s.worldPins, s.minimapPins = on, on
-			ns:Print("pins %s.", on and "on" or "off")
+			ns:ToggleSettings()
 		end
-		ns:Changed()
 	end)
 	button:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 		GameTooltip:AddLine("VeinKeeper")
 		GameTooltip:AddLine(#ns.db.spots .. " spots saved", 1, 1, 1)
-		GameTooltip:AddLine("Left-click: toggle all pins", 0.7, 0.7, 0.7)
-		GameTooltip:AddLine("Right-click: toggle minimap pins", 0.7, 0.7, 0.7)
-		GameTooltip:AddLine("Drag: move  |  /vk: options", 0.7, 0.7, 0.7)
+		GameTooltip:AddLine("Left-click: settings", 0.7, 0.7, 0.7)
+		GameTooltip:AddLine("Right-click: show / hide all pins", 0.7, 0.7, 0.7)
+		if OwnedByMinimap() then GameTooltip:AddLine("Drag: move", 0.7, 0.7, 0.7) end
 		GameTooltip:Show()
 	end)
 	button:SetScript("OnLeave", function() GameTooltip:Hide() end)
 	button:SetScript("OnDragStart", function(self)
+		if not OwnedByMinimap() then return end -- a collector owns it now
 		self:SetScript("OnUpdate", function()
 			local mx, my = Minimap:GetCenter()
 			local cx, cy = GetCursorPosition()
@@ -253,18 +259,17 @@ local function CreateButton()
 		end)
 	end)
 	button:SetScript("OnDragStop", function(self) self:SetScript("OnUpdate", nil) end)
+	PlaceButton()
 end
 
-local function UpdateButton()
-	if not ns.db then return end
-	if ns.db.settings.button then
+-- Only called at login and when the "minimap button" setting changes, never on
+-- every data change: repeatedly re-showing a collected button upsets collectors.
+function ns:UpdateMinimapButton()
+	if not self.db then return end
+	if self.db.settings.button then
 		if not button then CreateButton() end
-		PlaceButton()
-		button:Show()
-	elseif button then
+		if not button:IsShown() then button:Show() end
+	elseif button and button:IsShown() then
 		button:Hide()
 	end
 end
-
-table.insert(ns.listeners, UpdateButton)
-function ns:OnLogin() UpdateButton() end

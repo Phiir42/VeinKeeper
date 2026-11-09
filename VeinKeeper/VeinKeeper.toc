@@ -9,3 +9,4 @@ Core.lua
 WorldMap.lua
 WorldMap.xml
 Minimap.lua
+Config.lua

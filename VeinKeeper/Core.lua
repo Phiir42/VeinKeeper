@@ -15,6 +15,9 @@ local DEFAULTS = {
 	inRange = "ring",   -- minimap spots in range while Find Minerals is on: "ring", "hide" or "icon"
 	button = true,
 	buttonAngle = 215,
+	mapButton = true,   -- settings button on the world map
+	worldAlpha = 1,     -- world map pin opacity (0.1 - 1)
+	minimapAlpha = 1,   -- minimap pin opacity (0.1 - 1)
 }
 
 ---------------------------------------------------------------------------
@@ -253,6 +256,14 @@ function ns:Changed()
 	for _, fn in ipairs(self.listeners) do fn() end
 end
 
+function ns:ToggleAllPins()
+	local s = self.db.settings
+	local on = not (s.worldPins or s.minimapPins)
+	s.worldPins, s.minimapPins = on, on
+	self:Print("pins %s.", on and "on" or "off")
+	self:Changed()
+end
+
 function ns:Forget(spot)
 	for i, s in ipairs(self.db.spots) do
 		if s == spot then
@@ -395,6 +406,7 @@ local function Help()
 	local s = ns.db.settings
 	local on = function(v) return v and "|cff40ff40on|r" or "|cffff4040off|r" end
 	ns:Print("%d spots saved.", #ns.db.spots)
+	print("  /vk - open the settings window (also on the minimap and world map buttons)")
 	print("  /vk map - world map pins " .. on(s.worldPins))
 	print("  /vk minimap - minimap pins " .. on(s.minimapPins))
 	print("  /vk edge <0-10> - nearest far spots on minimap edge (" .. s.edgeCount .. ")")
@@ -433,7 +445,11 @@ SlashCmdList.VEINKEEPER = function(msg)
 	local cmd, rest = (msg or ""):match("^%s*(%S*)%s*(.-)%s*$")
 	cmd = cmd:lower()
 	local s = ns.db.settings
-	if cmd == "map" then
+	if cmd == "" then
+		return ns:ToggleSettings()
+	elseif cmd == "help" then
+		return Help()
+	elseif cmd == "map" then
 		s.worldPins = not s.worldPins
 	elseif cmd == "minimap" then
 		s.minimapPins = not s.minimapPins
@@ -449,6 +465,7 @@ SlashCmdList.VEINKEEPER = function(msg)
 		s.inRange = rest
 	elseif cmd == "button" then
 		s.button = not s.button
+		ns:UpdateMinimapButton()
 	elseif cmd == "near" then
 		return Near()
 	elseif (cmd == "ignore" or cmd == "unignore") and rest ~= "" then

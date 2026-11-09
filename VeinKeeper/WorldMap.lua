@@ -23,7 +23,9 @@ function ns:StylePin(pin, spot, ringOnly)
 	pin.ring:SetVertexColor(r, g, b, 1)
 	local ok = self:CanMine(spot)
 	pin.icon:SetDesaturated(not ok)
-	pin:SetAlpha(ok and 1 or 0.55)
+	local s = self.db.settings
+	local opacity = pin.isMinimap and s.minimapAlpha or s.worldAlpha
+	pin:SetAlpha(opacity * (ok and 1 or 0.55))
 end
 
 function ns:CreatePinTextures(pin)
@@ -94,6 +96,21 @@ function VeinKeeperPinMixin:OnClick(button)
 	ns:PinClick(self, button)
 end
 
+-- Forever's AcquirePin calls pin:CheckMouseButtonPassthrough(), which calls the
+-- protected Frame:SetPassThroughButtons(). From addon code that's blocked
+-- (ADDON_ACTION_BLOCKED). These pins don't need pass-through, so shadow both
+-- with no-ops on the mixin (the same fix HandyNotes uses).
+function VeinKeeperPinMixin:SetPassThroughButtons() end
+function VeinKeeperPinMixin:CheckMouseButtonPassthrough() end
+
+-- Recolour the open map's pins in place (freshness, opacity) without a rebuild.
+function ns:RestyleWorldPins()
+	if not (WorldMapFrame and WorldMapFrame:IsShown() and WorldMapFrame.EnumeratePinsByTemplate) then return end
+	for pin in WorldMapFrame:EnumeratePinsByTemplate("VeinKeeperPinTemplate") do
+		if pin.spot then self:StylePin(pin, pin.spot) end
+	end
+end
+
 function VeinKeeperPinMixin:OnAcquired(spot, x, y)
 	self:SetPosition(x, y)
 	ns:StylePin(self, spot)
@@ -155,9 +172,7 @@ ticker:SetScript("OnUpdate", function(_, dt)
 	if elapsed < 15 then return end
 	elapsed = 0
 	if provider.attached and WorldMapFrame:IsShown() then
-		for pin in WorldMapFrame:EnumeratePinsByTemplate(TEMPLATE) do
-			if pin.spot then ns:StylePin(pin, pin.spot) end
-		end
+		ns:RestyleWorldPins()
 	end
 end)
 

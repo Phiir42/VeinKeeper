@@ -10,13 +10,17 @@ A lightweight World of Warcraft: Forever (1.60.1, interface 16001) addon that re
 - Shared spawn points (e.g. Tin/Silver) merge into one pin; repeated hits on a multi-tap vein count as one visit; a spot's position is averaged over your first visits.
 - Spots above your Mining skill are dimmed.
 
-Type `/vk` in game for commands.
+- Settings window (`/vk`, the minimap button, or the button in the top-right of the world map): world map and minimap pin opacity, respawn timer, edge pins, Find Minerals mode, icon style, and the buttons themselves.
+- The minimap button is a named button parented to the minimap, so collectors like EllesmereUI's minimap flyout fold it in; once collected, VeinKeeper stops positioning it.
+
+Type `/vk help` in game for the slash commands.
 
 ## Layout
 
 | Path | What it is |
 |---|---|
 | `VeinKeeper/` | The addon itself (this folder goes in `Interface\AddOns`). |
+| `VeinKeeper/Config.lua` | Settings window and the world map button. |
 | `VeinKeeper/Data.lua` | Every Forever mining node, its required skill and icon. Source: Wowhead's Forever object database. |
 | `VeinKeeper/Icons/` | Generated 64x64 TGA icons. |
 | `make_icons.py` | Draws the icons and `icon-preview.png` (needs Pillow). |
