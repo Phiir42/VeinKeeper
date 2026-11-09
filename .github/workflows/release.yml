@@ -1,0 +1,28 @@
+# Pushing a tag like v1.1.0 builds the addon and publishes a GitHub release
+# with the zip, release.json (for addon managers such as WowUp) and the
+# CHANGELOG section as release notes. The tag must match the .toc version.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: python3 build.py --release "${GITHUB_REF_NAME#v}"
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$GITHUB_REF_NAME" dist/*.zip dist/release.json
+          --title "VeinKeeper ${GITHUB_REF_NAME#v}"
+          --notes-file dist/notes.md

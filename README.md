@@ -46,7 +46,9 @@ A lightweight World of Warcraft: Forever addon (1.60.1, interface 16001) that re
 | `VeinKeeper/Bindings.xml` | Key bindings. |
 | `VeinKeeper/Icons/` | Generated 64x64 TGA icons. |
 | `make_icons.py` | Draws the icons and `icon-preview.png` (needs Pillow). |
-| `build.py` | Builds `VeinKeeper.zip`; `--install` copies the addon into the Forever AddOns folder. |
+| `build.py` | Builds `VeinKeeper.zip`; `--install` copies the addon into the Forever AddOns folder; `--release <version>` builds the release files in `dist/`. |
+| `CHANGELOG.md` | Release notes; each release's section becomes its GitHub release notes. |
+| `.github/workflows/release.yml` | Publishes a GitHub release when a version tag is pushed. |
 
 ## Building
 
@@ -54,3 +56,15 @@ A lightweight World of Warcraft: Forever addon (1.60.1, interface 16001) that re
 python make_icons.py VeinKeeper/Icons icon-preview.png   # only after changing icons
 python build.py --install
 ```
+
+## Releasing
+
+1. Set `## Version:` in `VeinKeeper/VeinKeeper.toc` and add a matching `## <version>` section to `CHANGELOG.md`.
+2. Commit, then tag and push:
+
+```bash
+git tag v1.1.0
+git push origin main v1.1.0
+```
+
+The workflow builds `VeinKeeper-<version>.zip` and `release.json` and publishes them as a GitHub release, with that version's changelog section as the notes. It fails if the tag doesn't match the `.toc` version. Addon managers that install from GitHub (WowUp's "Install from URL") use the release's `release.json` to find the zip.
