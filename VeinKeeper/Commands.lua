@@ -139,6 +139,8 @@ SlashCmdList.VEINKEEPER = function(msg)
 		s.inRange = arg
 		ns:Print("spots in view with Find Minerals: %s.", arg)
 		ns:Changed()
+	elseif cmd == "debug" then
+		ns:ToggleHoverDebug()
 	elseif cmd == "next" then
 		ns:Next()
 	elseif cmd == "near" then

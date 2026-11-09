@@ -229,16 +229,32 @@ local function CleanLine(t)
 	return t:match("^%s*(.-)%s*$")
 end
 
+local debug = false -- /vk debug: print what hover recording sees
+
+local function FrameName(f)
+	if not f then return "none" end
+	return (f.GetName and f:GetName()) or tostring(f)
+end
+
 local function CheckHover()
 	if not (GameTooltip:IsShown() and Minimap:IsMouseOver()) then
 		lastTip = nil
 		return
 	end
-	-- only the minimap's own tooltip (tracking dots), not other addons' pins
-	if GameTooltip:GetOwner() ~= Minimap then return end
 	local first, lines = GameTooltipTextLeft1:GetText(), GameTooltip:NumLines()
 	if first == lastTip and lines == lastTipLines then return end
 	lastTip, lastTipLines = first, lines
+	local owner = GameTooltip:GetOwner()
+	if debug then
+		ns:Print("hover: tooltip owner %s (parent %s), Find Minerals %s, %d lines:",
+			FrameName(owner), FrameName(owner and owner.GetParent and owner:GetParent()),
+			tracking and "on" or "off", lines)
+		for i = 1, lines do
+			print(("  %d: %s"):format(i, (_G["GameTooltipTextLeft" .. i]:GetText() or ""):gsub("|", "||")))
+		end
+	end
+	-- only the minimap's own tooltip (tracking dots), not other addons' pins
+	if owner ~= Minimap or not (tracking and ns.db.settings.recordSeen) then return end
 
 	local names
 	for i = 1, lines do
@@ -284,13 +300,13 @@ ticker:SetScript("OnUpdate", function(_, dt)
 	if elapsed < TICK then return end
 	elapsed = 0
 	local s = ns.db.settings
-	if tracking and s.recordSeen then CheckHover() end
+	if debug or (tracking and s.recordSeen) then CheckHover() end
 	if s.minimapPins then Update() end
 end)
 
 local function UpdateActive()
 	local s = ns.db.settings
-	ticker:SetShown(s.minimapPins or (tracking and s.recordSeen))
+	ticker:SetShown(s.minimapPins or debug or (tracking and s.recordSeen))
 	if not s.minimapPins then HidePins(1) end
 	viewStale = true
 end
@@ -298,6 +314,23 @@ end
 local function UpdateTracking()
 	tracking = FindMineralsActive()
 	UpdateActive()
+end
+
+function ns:ToggleHoverDebug()
+	debug = not debug
+	UpdateTracking()
+	if not debug then return self:Print("hover debug off.") end
+	self:Print("hover debug on: hover minimap dots and their tooltips print here. /vk debug again to stop.")
+	self:Print("Find Minerals detected: %s. Minimap frame: %s.", tracking and "yes" or "no", FrameName(Minimap))
+	if C_Minimap and C_Minimap.GetNumTrackingTypes and C_Minimap.GetTrackingInfo then
+		for i = 1, C_Minimap.GetNumTrackingTypes() do
+			local name, _, active, _, _, spellID = C_Minimap.GetTrackingInfo(i)
+			if type(name) == "table" then name, active, spellID = name.name, name.active, name.spellID end
+			if active then print(("  active tracking: %s (spell %s)"):format(tostring(name), tostring(spellID))) end
+		end
+	elseif GetTrackingTexture then
+		print("  tracking texture: " .. tostring(GetTrackingTexture()))
+	end
 end
 
 ns:On("PLAYER_ENTERING_WORLD", function()
