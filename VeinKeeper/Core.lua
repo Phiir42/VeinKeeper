@@ -22,6 +22,7 @@ local DEFAULTS = {
 	minimapSize = 14,   -- minimap icon size in pixels
 	edgeReadyOnly = true, -- minimap edge arrows only point at spots likely respawned
 	only = false,       -- ore filter: an ore item ID (or node name for nodes without one); false = all
+	recordSeen = true,  -- save veins whose Find Minerals dot you hover on the minimap
 }
 
 BINDING_HEADER_VEINKEEPER = "VeinKeeper"
@@ -246,12 +247,23 @@ function ns:ResolveNodeName(text)
 	end
 end
 
--- r, g, b, ready: red right after mining, fading to yellow, green once ready.
+-- Seconds until a spot has likely respawned (<= 0: likely up). A vein seen on
+-- the minimap since it was last mined counts as up. Spots from minimap hovers
+-- that were never mined have no spot.last.
+function ns:Wait(spot)
+	if spot.seenAt and (not spot.last or spot.seenAt > spot.last) then return 0 end
+	return self.db.settings.readyMin * 60 - (time() - spot.last)
+end
+
+-- r, g, b, ready: red right after mining, fading to yellow, green once ready;
+-- blue for a spot only seen on the minimap, never mined.
 function ns:Freshness(spot)
-	local elapsed = time() - spot.last
-	local ready = self.db.settings.readyMin * 60
-	if elapsed >= ready then return 0.2, 1, 0.2, true end
-	local t = elapsed / ready
+	local wait = self:Wait(spot)
+	if wait <= 0 then
+		if not spot.last then return 0.35, 0.7, 1, true end
+		return 0.2, 1, 0.2, true
+	end
+	local t = 1 - wait / (self.db.settings.readyMin * 60)
 	return 1, 0.25 + 0.65 * t, 0.15, false
 end
 
@@ -269,16 +281,23 @@ function ns:ShowTooltip(owner, spot)
 	local info = self:NodeInfo(self:DisplayOre(spot))
 	GameTooltip:AddLine(self:DisplayOre(spot), info.color[1], info.color[2], info.color[3])
 	local r, g, b, ready = self:Freshness(spot)
-	local ago = self:FormatTime(time() - spot.last)
-	GameTooltip:AddDoubleLine("Last mined", ago .. " ago", 1, 1, 1, r, g, b)
+	if spot.last then
+		GameTooltip:AddDoubleLine("Last mined", self:FormatTime(time() - spot.last) .. " ago", 1, 1, 1, r, g, b)
+	else
+		GameTooltip:AddLine("Seen on the minimap, not mined yet", r, g, b)
+	end
+	if spot.seenAt and (not spot.last or spot.seenAt > spot.last) then
+		GameTooltip:AddDoubleLine("Seen up", self:FormatTime(time() - spot.seenAt) .. " ago", 1, 1, 1, r, g, b)
+	end
 	if not ready then
-		local left = self.db.settings.readyMin * 60 - (time() - spot.last)
-		GameTooltip:AddDoubleLine("Likely back in", self:FormatTime(left), 1, 1, 1, r, g, b)
+		GameTooltip:AddDoubleLine("Likely back in", self:FormatTime(self:Wait(spot)), 1, 1, 1, r, g, b)
 	end
 	if spot.minGap then
 		GameTooltip:AddDoubleLine("Fastest respawn seen", "<= " ..self:FormatTime(spot.minGap), 1, 1, 1, 0.8, 0.8, 0.8)
 	end
-	GameTooltip:AddDoubleLine("Visits / taps", spot.visits .. " / " .. spot.taps, 1, 1, 1, 0.8, 0.8, 0.8)
+	if spot.visits > 0 then
+		GameTooltip:AddDoubleLine("Visits / taps", spot.visits .. " / " .. spot.taps, 1, 1, 1, 0.8, 0.8, 0.8)
+	end
 	local d = self:Distance(spot)
 	if d then GameTooltip:AddDoubleLine("Distance", floor(d) .. " yd", 1, 1, 1, 0.8, 0.8, 0.8) end
 	local n = 0
@@ -288,7 +307,7 @@ function ns:ShowTooltip(owner, spot)
 		GameTooltip:AddLine("Ores seen here:", 1, 0.82, 0)
 		for name, count in pairs(spot.ores) do
 			local c = self:NodeInfo(name).color
-			GameTooltip:AddDoubleLine(name, count .. "x", c[1], c[2], c[3], 0.8, 0.8, 0.8)
+			GameTooltip:AddDoubleLine(name, count > 0 and count .. "x" or "seen", c[1], c[2], c[3], 0.8, 0.8, 0.8)
 		end
 	end
 	if not self:CanMine(spot) then
@@ -343,7 +362,7 @@ function ns:Next()
 		if s.wx and s.inst == inst and self:IsShown(s) and self:CanMine(s) then
 			local dx, dy = s.wx - wx, s.wy - wy
 			local d = sqrt(dx * dx + dy * dy)
-			local wait = readySec - (now - s.last)
+			local wait = self:Wait(s)
 			if checked[s] then wait = math.max(wait, readySec - (now - checked[s])) end
 			if wait <= 0 and d < AT_SPOT_YARDS then
 				checked[s] = now -- standing here and it's not up
@@ -374,7 +393,7 @@ local function PruneList(days)
 	local cutoff = time() - days * 86400
 	local list = {}
 	for i, s in ipairs(ns.db.spots) do
-		if s.visits <= 1 and s.last < cutoff then list[#list + 1] = i end
+		if s.visits <= 1 and math.max(s.last or 0, s.seenAt or 0) < cutoff then list[#list + 1] = i end
 	end
 	return list
 end
@@ -428,11 +447,11 @@ function ns:Record(name)
 	end
 
 	if best then
-		local gap = now - best.last
+		local gap = now - (best.last or 0) -- no last: only seen on the minimap so far
 		if gap > MULTITAP_SEC then
 			best.visits = best.visits + 1
 			best.ores[name] = (best.ores[name] or 0) + 1
-			best.minGap = best.minGap and min(best.minGap, gap) or gap
+			if best.last then best.minGap = best.minGap and min(best.minGap, gap) or gap end
 		elseif not best.ores[name] then
 			best.ores[name] = 1
 		end
@@ -463,6 +482,37 @@ function ns:Record(name)
 			db.seenNote = true
 			self:Print("saved your first vein (%s). Type /vk for options.", name)
 		end
+	end
+	self:Changed()
+end
+
+-- A vein seen on the minimap (hovering a Find Minerals dot) at world position
+-- wx, wy. Doesn't count as a visit: it marks an existing spot as up right now,
+-- or saves a new "seen" spot with no mining time.
+function ns:RecordSeen(name, wx, wy, inst, mapID, x, y)
+	local db = self.db
+	if db.ignore[name] then return end
+	local now = time()
+	local best, bestD = nil, MERGE_YARDS
+	for _, s in ipairs(db.spots) do
+		if s.wx and s.inst == inst then
+			local dx, dy = s.wx - wx, s.wy - wy
+			local d = sqrt(dx * dx + dy * dy)
+			if d < bestD then best, bestD = s, d end
+		end
+	end
+	if best then
+		-- right after mining, the dot can linger a moment: don't call that "up"
+		if best.last and now - best.last < MULTITAP_SEC then return end
+		best.seenAt = now
+		best.ores[name] = best.ores[name] or 0
+		if not best.last then best.lastOre = name end
+	else
+		db.spots[#db.spots + 1] = {
+			map = mapID, x = x, y = y, wx = wx, wy = wy, inst = inst,
+			ores = { [name] = 0 }, lastOre = name,
+			first = now, seenAt = now, visits = 0, taps = 0,
+		}
 	end
 	self:Changed()
 end
@@ -544,6 +594,7 @@ local function Help()
 	print("  /vk skill - dim spots above your Mining skill " .. on(s.skillDim))
 	print("  /vk icons - game ore icons " .. on(s.gameIcons) .. " (off = drawn icons)")
 	print("  /vk inrange ring|hide|icon - nearby spots while Find Minerals is on (" .. s.inRange .. ")")
+	print("  /vk seen - save veins whose Find Minerals dot you hover on the minimap " .. on(s.recordSeen))
 	print("  /vk button - minimap button " .. on(s.button))
 	print("  /vk next - waypoint to the nearest spot that's likely back (bind a key: Key Bindings > AddOns)")
 	print("  /vk near - list the closest saved spots")
@@ -569,7 +620,7 @@ local function Near()
 		local s = list[i].s
 		local _, _, _, ready = ns:Freshness(s)
 		print(("  %s - %d yd - %s"):format(ns:DisplayOre(s), floor(list[i].d),
-			ready and "|cff40ff40likely up|r" or ("mined " .. ns:FormatTime(time() - s.last) .. " ago")))
+			ready and "|cff40ff40likely up|r" or ("mined " .. ns:FormatTime(time() - (s.last or 0)) .. " ago")))
 	end
 end
 
@@ -599,6 +650,8 @@ SlashCmdList.VEINKEEPER = function(msg)
 	elseif cmd == "button" then
 		s.button = not s.button
 		ns:UpdateMinimapButton()
+	elseif cmd == "seen" then
+		s.recordSeen = not s.recordSeen
 	elseif cmd == "near" then
 		return Near()
 	elseif cmd == "next" then

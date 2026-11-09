@@ -8,6 +8,7 @@ local INDOOR = { [0] = 300, 240, 180, 120, 80, 50 }
 local SCAN_YARDS = 2500 -- only spots this close are considered at all
 
 local pins = {}
+local button -- the minimap button (created below)
 local candidates = {}
 local edge = {}
 local lastScan, lastInst = 0, nil
@@ -94,6 +95,75 @@ local function Place(p, spot, x, y, label, ringOnly)
 	p:Show()
 end
 
+-- yard radius, pixel radius, pixels per yard, and the rotation (cos, sin of
+-- the player's facing when the minimap rotates, else 1, 0)
+local function Geometry()
+	local sizes = indoors and INDOOR or OUTDOOR
+	local yardR = (sizes[Minimap:GetZoom()] or sizes[0]) / 2
+	local pxR = Minimap:GetWidth() / 2
+	local rotate = GetCVar("rotateMinimap") == "1"
+	local fc, fs = 1, 0
+	if rotate then
+		local facing = GetPlayerFacing and GetPlayerFacing()
+		if facing then fc, fs = cos(facing), sin(facing) end
+	end
+	return yardR, pxR, pxR / yardR, rotate, fc, fs
+end
+
+---------------------------------------------------------------------------
+-- Minimap hover recording: hovering a Find Minerals dot shows the node name
+-- in a tooltip. The cursor's offset from the minimap centre, in yards, is
+-- where the vein is relative to you (a minimap pixel is 2-3 yards).
+---------------------------------------------------------------------------
+local lastTip
+
+local function CleanLine(t)
+	t = t:gsub("|T.-|t", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+	return t:match("^%s*(.-)%s*$")
+end
+
+local function CheckHover()
+	if not (ns.db.settings.recordSeen and tracking and GameTooltip:IsShown() and Minimap:IsMouseOver()) then
+		lastTip = nil
+		return
+	end
+	local owner = GameTooltip:GetOwner()
+	if owner and (owner.spot or owner == button) then return end -- VeinKeeper's own pins and button
+	local names, text = {}, ""
+	for i = 1, GameTooltip:NumLines() do
+		local fs = _G["GameTooltipTextLeft" .. i]
+		local t = fs and fs:GetText()
+		if t then
+			text = text .. t .. "\n"
+			-- several dots under the cursor are listed one per line, sometimes in one string
+			for line in (t .. "\n"):gmatch("(.-)\n") do
+				local n = CleanLine(line)
+				if ns.NODES[n] then names[#names + 1] = n end
+			end
+		end
+	end
+	if text == lastTip then return end
+	lastTip = text
+	if #names == 0 then return end
+
+	local mapID, px, py = ns:PlayerMapPos()
+	if not mapID then return end
+	local wx, wy, inst = ns:MapToWorld(mapID, px, py)
+	local b = ns:Basis(mapID)
+	if not wx or not b then return end
+	local _, _, scale, rotate, fc, fs = Geometry()
+	local cx, cy = GetCursorPosition()
+	local es = Minimap:GetEffectiveScale()
+	local mx, my = Minimap:GetCenter()
+	local x, y = (cx / es - mx) / scale, (cy / es - my) / scale -- yards, screen right / up
+	if rotate then x, y = x * fc - y * fs, x * fs + y * fc end -- undo the minimap rotation
+	local east, south = x, -y
+	local nwx = wx + east * b.ex / b.w + south * b.sx / b.h
+	local nwy = wy + east * b.ey / b.w + south * b.sy / b.h
+	local nx, ny = ns:WorldToMap(b, nwx, nwy)
+	for _, n in ipairs(names) do ns:RecordSeen(n, nwx, nwy, inst, mapID, nx, ny) end
+end
+
 local function Update()
 	local used = 0
 	local s = ns.db.settings
@@ -106,17 +176,8 @@ local function Update()
 				Scan(wx, wy, inst)
 			end
 
-			local sizes = indoors and INDOOR or OUTDOOR
-			local yardR = (sizes[Minimap:GetZoom()] or sizes[0]) / 2
-			local pxR = Minimap:GetWidth() / 2
-			local scale = pxR / yardR
+			local yardR, pxR, scale, rotate, fc, fs = Geometry()
 			local square = GetMinimapShape and GetMinimapShape() == "SQUARE"
-			local rotate = GetCVar("rotateMinimap") == "1"
-			local fc, fs = 1, 0
-			if rotate then
-				local facing = GetPlayerFacing and GetPlayerFacing()
-				if facing then fc, fs = cos(facing), sin(facing) end
-			end
 
 			local mode = s.inRange -- "ring", "hide" or "icon"
 			local ringOnly = tracking and mode == "ring"
@@ -174,7 +235,10 @@ updater:SetScript("OnUpdate", function(_, dt)
 	throttle = throttle + dt
 	if throttle < 0.1 then return end
 	throttle = 0
-	if ns.db then Update() end
+	if ns.db then
+		CheckHover()
+		Update()
+	end
 end)
 
 table.insert(ns.listeners, function() lastScan = 0 end)
@@ -195,8 +259,6 @@ trackWatch:SetScript("OnEvent", UpdateTracking)
 -- collectors (EllesmereUI's flyout, MinimapButtonButton, ...) pick it up.
 -- Once a collector has re-parented it, VeinKeeper leaves its position alone.
 ---------------------------------------------------------------------------
-local button
-
 local function OwnedByMinimap()
 	return button and button:GetParent() == Minimap
 end

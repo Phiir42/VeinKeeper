@@ -198,7 +198,7 @@ local function px(v) return v .. " px" end
 
 local function CreatePanel()
 	panel = CreateFrame("Frame", "VeinKeeperSettings", UIParent, "BasicFrameTemplateWithInset")
-	panel:SetSize(330, 668)
+	panel:SetSize(330, 692)
 	panel:SetPoint("CENTER")
 	panel:SetFrameStrata("DIALOG")
 	panel:SetToplevel(true)
@@ -226,8 +226,9 @@ local function CreatePanel()
 	Check(panel, "Show pins on the minimap", "minimapPins", y - 42)
 	Check(panel, "Use the game's ore icons", "gameIcons", y - 66)
 	Check(panel, "Dim spots above my Mining skill", "skillDim", y - 90)
+	Check(panel, "Save veins I hover on the minimap (Find Minerals)", "recordSeen", y - 114)
 
-	y = y - 136
+	y = y - 160
 	Slider(panel, "World map pin opacity", "worldAlpha", y, 10, 100, 5, pct, toAlpha, fromAlpha, restyle)
 	Slider(panel, "Minimap pin opacity", "minimapAlpha", y - 42, 10, 100, 5, pct, toAlpha, fromAlpha)
 	Slider(panel, "World map icon size", "worldSize", y - 84, 8, 32, 1, px, same, same, restyle)
