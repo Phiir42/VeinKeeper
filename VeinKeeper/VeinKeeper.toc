@@ -1,0 +1,11 @@
+## Interface: 16001
+## Title: VeinKeeper
+## Notes: Remembers every ore vein you mine and shows it on your world map and minimap, with respawn timers.
+## Version: 1.0.0
+## SavedVariables: VeinKeeperDB
+
+Data.lua
+Core.lua
+WorldMap.lua
+WorldMap.xml
+Minimap.lua
