@@ -9,6 +9,10 @@ A lightweight World of Warcraft: Forever (1.60.1, interface 16001) addon that re
 - Minimap pins, plus the nearest out-of-range spots on the minimap edge with their distance.
 - Shared spawn points (e.g. Tin/Silver) merge into one pin; repeated hits on a multi-tap vein count as one visit; a spot's position is averaged over your first visits.
 - Spots above your Mining skill are dimmed.
+- `/vk next` (or a key under Key Bindings > AddOns) puts a waypoint on the nearest spot that has likely respawned. Press it again at a spot that turned out empty and it skips that one.
+- Ore filter (right-click the world map button, the settings window, or `/vk only thorium`): show just one ore, all its vein types together, on both maps.
+- Minimap edge arrows point only at spots likely respawned (can be turned off in settings).
+- `/vk prune [days]` deletes spots visited only once and not seen for 30 (or [days]) days.
 
 - Settings window (`/vk`, the minimap button, or the button in the top-right of the world map): world map and minimap pin opacity and icon size, respawn timer, edge pins, Find Minerals mode, icon style, and the buttons themselves.
 - Shows up in the addon compartment (the minimap's addon list, which EllesmereUI keeps): left-click opens settings, right-click shows/hides pins. The minimap button is also a named minimap button, so button collectors can take it; once collected, VeinKeeper stops positioning it.
@@ -20,7 +24,8 @@ Type `/vk help` in game for the slash commands.
 | Path | What it is |
 |---|---|
 | `VeinKeeper/` | The addon itself (this folder goes in `Interface\AddOns`). |
-| `VeinKeeper/Config.lua` | Settings window and the world map button. |
+| `VeinKeeper/Config.lua` | Settings window, ore filter menu and the world map button. |
+| `VeinKeeper/Bindings.xml` | Key bindings (next spot, toggle pins, settings). |
 | `VeinKeeper/Data.lua` | Every Forever mining node, its required skill and icon. Source: Wowhead's Forever object database. |
 | `VeinKeeper/Icons/` | Generated 64x64 TGA icons. |
 | `make_icons.py` | Draws the icons and `icon-preview.png` (needs Pillow). |

@@ -1,0 +1,5 @@
+<Bindings>
+	<Binding name="VEINKEEPER_NEXT" header="VEINKEEPER" category="ADDONS">VeinKeeper:Next()</Binding>
+	<Binding name="VEINKEEPER_TOGGLE" category="ADDONS">VeinKeeper:ToggleAllPins()</Binding>
+	<Binding name="VEINKEEPER_SETTINGS" category="ADDONS">VeinKeeper:ToggleSettings()</Binding>
+</Bindings>

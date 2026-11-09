@@ -115,6 +115,79 @@ local function InRangeButton(parent, y)
 end
 
 ---------------------------------------------------------------------------
+-- Ore filter menu (settings window and world map button right-click).
+-- Uses the new Menu API when the client has it, else UIDropDownMenu.
+---------------------------------------------------------------------------
+local menuFrame
+
+local function FilterEntries(withPinToggle)
+	local s = ns.db.settings
+	local function set(key) s.only = key ns:Changed() end
+	local list = { { text = "All ores", checked = function() return not s.only end, func = function() set(false) end } }
+	for _, c in ipairs(ns:FilterChoices()) do
+		list[#list + 1] = { text = c.label, checked = function() return s.only == c.key end, func = function() set(c.key) end }
+	end
+	if withPinToggle then
+		list[#list + 1] = { divider = true }
+		list[#list + 1] = { text = s.worldPins and "Hide map pins" or "Show map pins", func = function()
+			s.worldPins = not s.worldPins
+			ns:Changed()
+		end }
+		list[#list + 1] = { text = "Settings...", func = function() ns:ToggleSettings() end }
+	end
+	return list
+end
+
+function ns:ShowFilterMenu(owner, withPinToggle)
+	local entries = FilterEntries(withPinToggle)
+	if MenuUtil and MenuUtil.CreateContextMenu then
+		MenuUtil.CreateContextMenu(owner, function(_, root)
+			root:CreateTitle("Show ore")
+			for _, e in ipairs(entries) do
+				if e.divider then
+					root:CreateDivider()
+				elseif e.checked then
+					root:CreateRadio(e.text, e.checked, e.func)
+				else
+					root:CreateButton(e.text, e.func)
+				end
+			end
+		end)
+	elseif UIDropDownMenu_Initialize and ToggleDropDownMenu then
+		menuFrame = menuFrame or CreateFrame("Frame", "VeinKeeperFilterMenu", UIParent, "UIDropDownMenuTemplate")
+		UIDropDownMenu_Initialize(menuFrame, function(_, level)
+			local info = UIDropDownMenu_CreateInfo()
+			info.text, info.isTitle, info.notCheckable = "Show ore", true, true
+			UIDropDownMenu_AddButton(info, level)
+			for _, e in ipairs(entries) do
+				if not e.divider then
+					info = UIDropDownMenu_CreateInfo()
+					info.text, info.func = e.text, e.func
+					if e.checked then info.checked = e.checked() else info.notCheckable = true end
+					UIDropDownMenu_AddButton(info, level)
+				end
+			end
+		end, "MENU")
+		ToggleDropDownMenu(1, nil, menuFrame, owner, 0, 0)
+	end
+end
+
+local function FilterButton(parent, y)
+	local label = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+	label:SetPoint("TOPLEFT", 22, y)
+	label:SetText("Show only this ore:")
+	local b = CreateFrame("Button", NextName("Button"), parent, "UIPanelButtonTemplate")
+	b:SetSize(130, 22)
+	b:SetPoint("TOPRIGHT", -18, y + 5)
+	b:SetScript("OnClick", function(self) ns:ShowFilterMenu(self) end)
+	b.Refresh = function()
+		local only = ns.db.settings.only
+		b:SetText(only and ns:OreLabel(only) or "All ores")
+	end
+	controls[#controls + 1] = b
+end
+
+---------------------------------------------------------------------------
 -- Panel
 ---------------------------------------------------------------------------
 local function pct(v) return v .. "%" end
@@ -125,7 +198,7 @@ local function px(v) return v .. " px" end
 
 local function CreatePanel()
 	panel = CreateFrame("Frame", "VeinKeeperSettings", UIParent, "BasicFrameTemplateWithInset")
-	panel:SetSize(330, 604)
+	panel:SetSize(330, 668)
 	panel:SetPoint("CENTER")
 	panel:SetFrameStrata("DIALOG")
 	panel:SetToplevel(true)
@@ -164,10 +237,14 @@ local function CreatePanel()
 	Slider(panel, "Far spots shown on the minimap edge", "edgeCount", y - 210, 0, 10, 1,
 		tostring, same, same)
 
-	y = y - 254
-	InRangeButton(panel, y)
+	y = y - 250
+	Check(panel, "Edge: only spots likely respawned", "edgeReadyOnly", y)
 
-	y = y - 34
+	y = y - 38
+	InRangeButton(panel, y)
+	FilterButton(panel, y - 30)
+
+	y = y - 64
 	Header(panel, "Buttons", y)
 	Check(panel, "Minimap button", "button", y - 18, function() ns:UpdateMinimapButton() end)
 	Check(panel, "World map button", "mapButton", y - 42, function() ns:UpdateMapButton() end)
@@ -215,12 +292,10 @@ local function CreateMapButton()
 	border:SetSize(53, 53)
 	border:SetPoint("TOPLEFT")
 
-	mapButton:SetScript("OnClick", function(_, btn)
+	mapButton:SetScript("OnClick", function(self, btn)
 		if btn == "RightButton" then
-			local s = ns.db.settings
-			s.worldPins = not s.worldPins
-			ns:Print("world map pins %s.", s.worldPins and "on" or "off")
-			ns:Changed()
+			GameTooltip:Hide()
+			ns:ShowFilterMenu(self, true)
 		else
 			ns:ToggleSettings()
 		end
@@ -229,7 +304,9 @@ local function CreateMapButton()
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 		GameTooltip:AddLine("VeinKeeper")
 		GameTooltip:AddLine("Left-click: settings", 0.7, 0.7, 0.7)
-		GameTooltip:AddLine("Right-click: show / hide map pins", 0.7, 0.7, 0.7)
+		local only = ns.db.settings.only
+		if only then GameTooltip:AddLine("Showing only " .. ns:OreLabel(only), 1, 0.82, 0) end
+		GameTooltip:AddLine("Right-click: ore filter, show / hide pins", 0.7, 0.7, 0.7)
 		GameTooltip:Show()
 	end)
 	mapButton:SetScript("OnLeave", function() GameTooltip:Hide() end)

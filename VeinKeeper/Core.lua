@@ -20,7 +20,14 @@ local DEFAULTS = {
 	minimapAlpha = 1,   -- minimap pin opacity (0.1 - 1)
 	worldSize = 18,     -- world map icon size in pixels (before map zoom scaling)
 	minimapSize = 14,   -- minimap icon size in pixels
+	edgeReadyOnly = true, -- minimap edge arrows only point at spots likely respawned
+	only = false,       -- ore filter: an ore item ID (or node name for nodes without one); false = all
 }
+
+BINDING_HEADER_VEINKEEPER = "VeinKeeper"
+BINDING_NAME_VEINKEEPER_NEXT = "Waypoint to the next respawned spot"
+BINDING_NAME_VEINKEEPER_TOGGLE = "Show / hide all pins"
+BINDING_NAME_VEINKEEPER_SETTINGS = "Open settings"
 
 ---------------------------------------------------------------------------
 -- Utilities
@@ -161,22 +168,64 @@ function ns:CanMine(spot)
 	return not self.db.settings.skillDim or skillRank == 0 or self:MinSkill(spot) <= skillRank
 end
 
--- A spot is hidden only when every ore seen there is ignored.
+-- The ore filter groups nodes by the ore they drop (all Thorium veins together).
+function ns:OreKey(name)
+	local n = self.NODES[name]
+	return n and n.item or name
+end
+
+function ns:OreLabel(key)
+	if type(key) ~= "number" then return key end
+	local name = C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(key)
+	if not name and GetItemInfo then name = GetItemInfo(key) end
+	if name then return name end
+	-- item not cached yet: fall back to the lowest-skill node that drops it
+	local best, bestSkill
+	for n, info in pairs(self.NODES) do
+		if info.item == key and (not bestSkill or info.skill < bestSkill) then best, bestSkill = n, info.skill end
+	end
+	return best or tostring(key)
+end
+
+-- Ores you have saved spots for, lowest skill first: { {key=, label=}, ... }
+function ns:FilterChoices()
+	local seen, list = {}, {}
+	for _, s in ipairs(self.db.spots) do
+		for name in pairs(s.ores) do
+			local key = self:OreKey(name)
+			if not seen[key] and not self.db.ignore[name] then
+				seen[key] = true
+				list[#list + 1] = { key = key, label = self:OreLabel(key), skill = self:NodeInfo(name).skill or 0 }
+			end
+		end
+	end
+	table.sort(list, function(a, b)
+		if a.skill ~= b.skill then return a.skill < b.skill end
+		return a.label < b.label
+	end)
+	return list
+end
+
+local function Passes(self, name)
+	if self.db.ignore[name] then return false end
+	local only = self.db.settings.only
+	return not only or self:OreKey(name) == only
+end
+
+-- A spot is hidden when no ore seen there passes the ignore list and ore filter.
 function ns:IsShown(spot)
-	local ignore = self.db.ignore
-	if not next(ignore) then return true end
+	if not self.db.settings.only and not next(self.db.ignore) then return true end
 	for name in pairs(spot.ores) do
-		if not ignore[name] then return true end
+		if Passes(self, name) then return true end
 	end
 	return false
 end
 
--- The ore a pin should show: the last one mined, unless that one is ignored.
+-- The ore a pin should show: the last one mined, unless it's filtered out.
 function ns:DisplayOre(spot)
-	local ignore = self.db.ignore
-	if not ignore[spot.lastOre] then return spot.lastOre end
+	if Passes(self, spot.lastOre) then return spot.lastOre end
 	for name in pairs(spot.ores) do
-		if not ignore[name] then return name end
+		if Passes(self, name) then return name end
 	end
 	return spot.lastOre
 end
@@ -275,6 +324,81 @@ function ns:Forget(spot)
 		end
 	end
 end
+
+---------------------------------------------------------------------------
+-- Next spot: waypoint to the nearest spot that has likely respawned.
+-- Calling it while standing at a "ready" spot means it wasn't there (if it
+-- were, you'd mine it), so that spot is skipped for one respawn timer.
+---------------------------------------------------------------------------
+local checked = {} -- spot -> time() it was found empty this session
+local AT_SPOT_YARDS = 40
+
+function ns:Next()
+	local wx, wy, inst = self:PlayerWorld()
+	if not wx then self:Print("no position here.") return end
+	local readySec = self.db.settings.readyMin * 60
+	local now = time()
+	local best, bestD, soon
+	for _, s in ipairs(self.db.spots) do
+		if s.wx and s.inst == inst and self:IsShown(s) and self:CanMine(s) then
+			local dx, dy = s.wx - wx, s.wy - wy
+			local d = sqrt(dx * dx + dy * dy)
+			local wait = readySec - (now - s.last)
+			if checked[s] then wait = math.max(wait, readySec - (now - checked[s])) end
+			if wait <= 0 and d < AT_SPOT_YARDS then
+				checked[s] = now -- standing here and it's not up
+				wait = readySec
+			end
+			if wait <= 0 then
+				if not bestD or d < bestD then best, bestD = s, d end
+			elseif not soon or wait < soon then
+				soon = wait
+			end
+		end
+	end
+	if best then
+		self:SetWaypoint(best)
+		self:Print("next: %s, %d yd.", self:DisplayOre(best), floor(bestD))
+	elseif soon then
+		self:Print("nothing likely up here yet; the soonest is back in %s.", self:FormatTime(soon))
+	else
+		self:Print("no saved spots you can mine on this continent.")
+	end
+end
+
+---------------------------------------------------------------------------
+-- Prune: drop spots visited only once and not seen for a while (positions
+-- logged by mistake, or one-off spawns).
+---------------------------------------------------------------------------
+local function PruneList(days)
+	local cutoff = time() - days * 86400
+	local list = {}
+	for i, s in ipairs(ns.db.spots) do
+		if s.visits <= 1 and s.last < cutoff then list[#list + 1] = i end
+	end
+	return list
+end
+
+function ns:Prune(days)
+	local n = #PruneList(days)
+	if n == 0 then
+		self:Print("nothing to prune: no single-visit spots older than %d days.", days)
+		return
+	end
+	StaticPopup_Show("VEINKEEPER_PRUNE", n, days, { days = days })
+end
+
+StaticPopupDialogs["VEINKEEPER_PRUNE"] = {
+	text = "Delete %d spots you've visited only once, more than %d days ago?",
+	button1 = YES, button2 = NO,
+	OnAccept = function(_, data)
+		local list = PruneList(data.days)
+		for k = #list, 1, -1 do table.remove(ns.db.spots, list[k]) end
+		ns:Changed()
+		ns:Print("pruned %d spots.", #list)
+	end,
+	timeout = 0, whileDead = true, hideOnEscape = true,
+}
 
 ---------------------------------------------------------------------------
 -- Recording
@@ -421,8 +545,11 @@ local function Help()
 	print("  /vk icons - game ore icons " .. on(s.gameIcons) .. " (off = drawn icons)")
 	print("  /vk inrange ring|hide|icon - nearby spots while Find Minerals is on (" .. s.inRange .. ")")
 	print("  /vk button - minimap button " .. on(s.button))
+	print("  /vk next - waypoint to the nearest spot that's likely back (bind a key: Key Bindings > AddOns)")
 	print("  /vk near - list the closest saved spots")
+	print("  /vk only <ore or node> | /vk only all - show just one ore (" .. (s.only and ns:OreLabel(s.only) or "all") .. ")")
 	print("  /vk ignore <Node Name> | /vk unignore <Node Name> | /vk ignore")
+	print("  /vk prune [days] - delete spots visited once, over [30] days ago")
 	print("  /vk clear zone | /vk clear all")
 end
 
@@ -474,6 +601,27 @@ SlashCmdList.VEINKEEPER = function(msg)
 		ns:UpdateMinimapButton()
 	elseif cmd == "near" then
 		return Near()
+	elseif cmd == "next" then
+		return ns:Next()
+	elseif cmd == "prune" then
+		return ns:Prune(math.max(1, floor(tonumber(rest) or 30)))
+	elseif cmd == "only" and rest ~= "" then
+		local lower = rest:lower()
+		if lower == "all" then
+			s.only = false
+		else
+			local key
+			local name = ns:ResolveNodeName(rest)
+			if name then key = ns:OreKey(name) end
+			for _, c in ipairs(ns:FilterChoices()) do
+				if not key and c.label:lower():find(lower, 1, true) then key = c.key end
+			end
+			if not key then ns:Print("no saved spots for \"%s\".", rest) return end
+			s.only = key
+		end
+		ns:Print("showing %s.", s.only and ns:OreLabel(s.only) or "all ores")
+		ns:Changed()
+		return
 	elseif (cmd == "ignore" or cmd == "unignore") and rest ~= "" then
 		-- ignoring is a filter: nothing is deleted, so unignore brings the pins back
 		local name = ns:ResolveNodeName(rest)

@@ -138,7 +138,7 @@ local function Update()
 						used = used + 1
 						Place(GetPin(used), spot, x * scale, y * scale, nil, ringOnly)
 					end
-				else
+				elseif not s.edgeReadyOnly or select(4, ns:Freshness(spot)) then
 					nEdge = nEdge + 1
 					local e = edge[nEdge] or {}
 					edge[nEdge] = e

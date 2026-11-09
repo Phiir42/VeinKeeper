@@ -44,10 +44,13 @@ function ns:CreatePinTextures(pin)
 	pin.ring:SetTexture(self.RING)
 end
 
-local function SetWaypoint(spot)
+-- One VeinKeeper waypoint at a time: a new one replaces the last.
+local tomtomUID
+function ns:SetWaypoint(spot)
 	local name = ns:DisplayOre(spot)
 	if TomTom and TomTom.AddWaypoint then
-		TomTom:AddWaypoint(spot.map, spot.x, spot.y, { title = name, persistent = false })
+		if tomtomUID and TomTom.RemoveWaypoint then pcall(TomTom.RemoveWaypoint, TomTom, tomtomUID) end
+		tomtomUID = TomTom:AddWaypoint(spot.map, spot.x, spot.y, { title = name, persistent = false })
 		return
 	end
 	if C_Map.SetUserWaypoint and UiMapPoint and UiMapPoint.CreateFromCoordinates then
@@ -68,7 +71,7 @@ function ns:PinClick(pin, button)
 		self:Forget(spot)
 		self:Print("forgot that %s spot.", self:DisplayOre(spot))
 	elseif button == "LeftButton" then
-		SetWaypoint(spot)
+		self:SetWaypoint(spot)
 	end
 end
 
