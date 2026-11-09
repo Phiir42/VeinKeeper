@@ -290,6 +290,11 @@ local function CheckHover()
 	local nwx, nwy = ns:Offset(b, wx, wy, x, -y)
 	local nx, ny = ns:WorldToMap(b, nwx, nwy)
 	local slop = HOVER_SLOP_PX / scale -- yards the cursor can be off the dot
+	if debug then
+		local _, yardR = Scale()
+		ns:Print("  cursor %.0f yd east, %.0f yd north of you; minimap %.0f px wide = %.0f yd (%s, zoom %d)",
+			x, y, Minimap:GetWidth(), yardR * 2, indoors and "indoor" or "outdoor", Minimap:GetZoom())
+	end
 	for _, name in ipairs(names) do ns:RecordSeen(name, nwx, nwy, inst, mapID, nx, ny, slop) end
 end
 
@@ -322,6 +327,7 @@ end
 
 function ns:ToggleHoverDebug()
 	debug = not debug
+	self.hoverDebug = debug
 	UpdateTracking()
 	if not debug then return self:Print("hover debug off.") end
 	self:Print("hover debug on: hover minimap dots and their tooltips print here. /vk debug again to stop.")

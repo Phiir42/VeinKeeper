@@ -211,7 +211,7 @@ local function Closest(wx, wy, inst, mapID, x, y, name, reach, accept)
 			best, bestD = s, d
 		end
 	end
-	return best
+	return best, bestD
 end
 
 local function NeverMined(s) return not s.last end
@@ -284,7 +284,12 @@ function ns:RecordSeen(name, wx, wy, inst, mapID, x, y, slop)
 	if self.db.ignore[name] then return end
 	local now = time()
 	-- zoomed in, the error is small and close veins stay apart
-	local spot = Closest(wx, wy, inst, mapID, x, y, name, min(SEEN_REACH, slop or SEEN_REACH))
+	local reach = min(SEEN_REACH, slop or SEEN_REACH)
+	local spot, d = Closest(wx, wy, inst, mapID, x, y, name, reach)
+	if self.hoverDebug then
+		self:Print("  merge reach %d yd: %s", max(reach, MERGE_YARDS),
+			spot and ("joined a spot %d yd away"):format(d) or "no spot in reach, new spot")
+	end
 	if not spot then
 		NewSpot(mapID, x, y, wx, wy, inst, name, false, now)
 		return self:Changed()

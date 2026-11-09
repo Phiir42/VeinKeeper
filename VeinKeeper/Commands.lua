@@ -33,7 +33,7 @@ local function Help()
 		"/vk ready <minutes> | edge <0-10>  respawn timer, rim pin count",
 		"/vk inrange ring | hide | icon  spots in view with Find Minerals on",
 		"/vk prune [days]  delete single-visit spots older than [30] days",
-		"/vk clear zone | all  delete spots",
+		"/vk clear zone | seen | all  delete spots (seen = only seen on the minimap, never mined)",
 	}) do
 		print("  " .. line)
 	end
@@ -103,6 +103,9 @@ end
 
 local function Clear(arg)
 	if arg == "all" then return StaticPopup_Show("VEINKEEPER_CLEAR_ALL") end
+	if arg == "seen" then
+		return ns:Print("removed %d never-mined spots.", ns:RemoveSpots(function(s) return not s.last end))
+	end
 	if arg ~= "zone" then return Help() end
 	local mapID = C_Map.GetBestMapForUnit("player")
 	ns:Print("removed %d spots in this zone.", ns:RemoveSpots(function(s) return s.map == mapID end))
