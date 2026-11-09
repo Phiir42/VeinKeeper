@@ -368,6 +368,10 @@ f:SetScript("OnEvent", function(_, event, ...)
 			if db.settings[k] == nil then db.settings[k] = v end
 		end
 		ns.db = db
+		-- Create the minimap button now rather than at login: minimap button
+		-- collectors (EllesmereUI rescans 0.1s after every ADDON_LOADED) then
+		-- find it on their next scan.
+		if ns.UpdateMinimapButton then ns:UpdateMinimapButton() end
 	elseif event == "PLAYER_LOGIN" then
 		MINING = SpellName(2575) or "Mining"
 		ScanSkill()
