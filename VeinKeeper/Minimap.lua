@@ -253,8 +253,10 @@ local function CheckHover()
 			print(("  %d: %s"):format(i, (_G["GameTooltipTextLeft" .. i]:GetText() or ""):gsub("|", "||")))
 		end
 	end
-	-- only the minimap's own tooltip (tracking dots), not other addons' pins
-	if owner ~= Minimap or not (tracking and ns.db.settings.recordSeen) then return end
+	-- Only the minimap's own tooltip for tracking dots. Forever shows it owned
+	-- by UIParent; other addons' minimap pins own their tooltips themselves.
+	if owner ~= Minimap and owner ~= UIParent then return end
+	if GameTooltip:GetUnit() or not (tracking and ns.db.settings.recordSeen) then return end
 
 	local names
 	for i = 1, lines do
