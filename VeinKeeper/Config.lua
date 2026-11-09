@@ -1,34 +1,54 @@
+-- Settings window (/vk, the minimap button or the world map button) and the
+-- ore filter menu. Built on first open; costs nothing until then.
 local _, ns = ...
 
 local floor = math.floor
+local WIDTH, HEIGHT = 600, 418
+local LEFT, RIGHT = 16, 312 -- column x offsets
+local COL_WIDTH = 272
+
 local panel
 local controls = {}
 local nameCount = 0
 
--- Template children are created with "$parent..." names, so give every control
--- a unique global name rather than leaking names like "Text".
+-- Template children get "$parent..." names, so give each control its own name.
 local function NextName(kind)
 	nameCount = nameCount + 1
 	return "VeinKeeperSettings" .. kind .. nameCount
 end
 
 local function RefreshControls()
-	if not panel or not panel:IsShown() then return end
+	if not (panel and panel:IsShown()) then return end
 	for _, c in ipairs(controls) do c.Refresh() end
+end
+
+local function AddTooltip(frame, title, text)
+	if not text then return end
+	frame:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:AddLine(title)
+		GameTooltip:AddLine(text, 1, 1, 1, true)
+		GameTooltip:Show()
+	end)
+	frame:SetScript("OnLeave", function() GameTooltip:Hide() end)
 end
 
 ---------------------------------------------------------------------------
 -- Controls
 ---------------------------------------------------------------------------
-local function Header(parent, text, y)
-	local fs = parent:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-	fs:SetPoint("TOPLEFT", 16, y)
+local function Header(x, y, text)
+	local fs = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+	fs:SetPoint("TOPLEFT", x, y)
 	fs:SetText(text)
+	local line = panel:CreateTexture(nil, "ARTWORK")
+	line:SetColorTexture(1, 0.82, 0, 0.25)
+	line:SetSize(COL_WIDTH, 1)
+	line:SetPoint("TOPLEFT", fs, "BOTTOMLEFT", 0, -3)
 end
 
-local function Check(parent, label, key, y, onChange)
-	local cb = CreateFrame("CheckButton", NextName("Check"), parent, "UICheckButtonTemplate")
-	cb:SetPoint("TOPLEFT", 14, y)
+local function Check(x, y, label, key, tip, onChange)
+	local cb = CreateFrame("CheckButton", NextName("Check"), panel, "UICheckButtonTemplate")
+	cb:SetPoint("TOPLEFT", x - 2, y)
 	cb:SetSize(24, 24)
 	local text = cb.Text or cb.text
 	if not text then
@@ -36,6 +56,7 @@ local function Check(parent, label, key, y, onChange)
 		text:SetPoint("LEFT", cb, "RIGHT", 2, 0)
 	end
 	text:SetText(label)
+	AddTooltip(cb, label, tip)
 	cb:SetScript("OnClick", function(self)
 		ns.db.settings[key] = self:GetChecked() and true or false
 		if onChange then onChange() end
@@ -45,20 +66,20 @@ local function Check(parent, label, key, y, onChange)
 	controls[#controls + 1] = cb
 end
 
--- fmt formats the slider value; toStore/fromStore convert between slider units
--- and the saved setting (e.g. percent <-> 0-1 opacity); apply runs on change.
-local function Slider(parent, label, key, y, minV, maxV, step, fmt, toStore, fromStore, apply)
+-- scale: the stored setting is the slider value / scale (100 for percentages)
+local function Slider(x, y, label, key, minV, maxV, step, unit, scale)
+	scale = scale or 1
 	local name = NextName("Slider")
-	local sl = CreateFrame("Slider", name, parent, "OptionsSliderTemplate")
-	sl:SetPoint("TOPLEFT", 22, y)
-	sl:SetWidth(276)
+	local sl = CreateFrame("Slider", name, panel, "OptionsSliderTemplate")
+	sl:SetPoint("TOPLEFT", x + 4, y - 16)
+	sl:SetWidth(COL_WIDTH - 8)
 	sl:SetMinMaxValues(minV, maxV)
 	sl:SetValueStep(step)
 	if sl.SetObeyStepOnDrag then sl:SetObeyStepOnDrag(true) end
-	-- hide the template's own labels (their keys differ between client versions)
+	-- the template's own labels have different keys across client versions
 	for _, k in ipairs({ "Low", "High", "Text" }) do
 		local fs = sl[k] or _G[name .. k]
-		if fs then fs:SetText("") fs:Hide() end
+		if fs then fs:Hide() end
 	end
 	local title = sl:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 	title:SetPoint("BOTTOMLEFT", sl, "TOPLEFT", 0, 3)
@@ -68,78 +89,60 @@ local function Slider(parent, label, key, y, minV, maxV, step, fmt, toStore, fro
 
 	sl:SetScript("OnValueChanged", function(self, v)
 		v = floor(v / step + 0.5) * step
-		value:SetText(fmt(v))
+		value:SetText(v .. unit)
 		if self.refreshing then return end
-		ns.db.settings[key] = toStore(v)
-		if apply then apply() end
+		ns.db.settings[key] = v / scale
+		ns:Restyle()
 	end)
 	sl.Refresh = function()
 		sl.refreshing = true
-		local v = fromStore(ns.db.settings[key])
+		local v = floor(ns.db.settings[key] * scale + 0.5)
 		sl:SetValue(v)
-		value:SetText(fmt(v))
+		value:SetText(v .. unit)
 		sl.refreshing = false
 	end
 	controls[#controls + 1] = sl
 end
 
-local IN_RANGE = { "ring", "hide", "icon" }
-local IN_RANGE_LABEL = { ring = "Hollow ring", hide = "Hidden", icon = "Full icon" }
-
-local function InRangeButton(parent, y)
-	local label = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-	label:SetPoint("TOPLEFT", 22, y)
-	label:SetText("Nearby spots while Find Minerals is on:")
-	local b = CreateFrame("Button", NextName("Button"), parent, "UIPanelButtonTemplate")
-	b:SetSize(110, 22)
-	b:SetPoint("TOPRIGHT", -18, y + 5)
-	b:SetScript("OnClick", function()
-		local cur = ns.db.settings.inRange
-		local nextMode = IN_RANGE[1]
-		for i, m in ipairs(IN_RANGE) do
-			if m == cur then nextMode = IN_RANGE[i % #IN_RANGE + 1] end
-		end
-		ns.db.settings.inRange = nextMode
-		b.Refresh()
-	end)
-	b:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		GameTooltip:AddLine("Find Minerals")
-		GameTooltip:AddLine("Addons can't see tracking dots, so VeinKeeper can't tell whether a vein is up.", 1, 1, 1, true)
-		GameTooltip:AddLine("Hollow ring: the game's yellow dot shows inside the ring when the vein is there.", 0.8, 0.8, 0.8, true)
-		GameTooltip:Show()
-	end)
-	b:SetScript("OnLeave", function() GameTooltip:Hide() end)
-	b.Refresh = function() b:SetText(IN_RANGE_LABEL[ns.db.settings.inRange] or ns.db.settings.inRange) end
+-- A label with a button on the right showing the current choice.
+local function Choice(x, y, label, width, getText, onClick, tip)
+	local fs = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+	fs:SetPoint("TOPLEFT", x, y - 5)
+	fs:SetText(label)
+	local b = CreateFrame("Button", NextName("Button"), panel, "UIPanelButtonTemplate")
+	b:SetSize(width, 22)
+	b:SetPoint("TOPLEFT", x + COL_WIDTH - width, y)
+	b:SetScript("OnClick", onClick)
+	AddTooltip(b, label, tip)
+	b.Refresh = function() b:SetText(getText()) end
 	controls[#controls + 1] = b
 end
 
 ---------------------------------------------------------------------------
--- Ore filter menu (settings window and world map button right-click).
--- Uses the new Menu API when the client has it, else UIDropDownMenu.
+-- Ore filter menu. Uses the Menu API when the client has it, else UIDropDownMenu.
 ---------------------------------------------------------------------------
-local menuFrame
+local dropDown
 
-local function FilterEntries(withPinToggle)
+local function MenuEntries(withMapItems)
 	local s = ns.db.settings
 	local function set(key) s.only = key ns:Changed() end
 	local list = { { text = "All ores", checked = function() return not s.only end, func = function() set(false) end } }
 	for _, c in ipairs(ns:FilterChoices()) do
 		list[#list + 1] = { text = c.label, checked = function() return s.only == c.key end, func = function() set(c.key) end }
 	end
-	if withPinToggle then
+	if withMapItems then
 		list[#list + 1] = { divider = true }
 		list[#list + 1] = { text = s.worldPins and "Hide map pins" or "Show map pins", func = function()
 			s.worldPins = not s.worldPins
 			ns:Changed()
 		end }
-		list[#list + 1] = { text = "Settings...", func = function() ns:ToggleSettings() end }
+		list[#list + 1] = { text = "Settings", func = function() ns:ToggleSettings() end }
 	end
 	return list
 end
 
-function ns:ShowFilterMenu(owner, withPinToggle)
-	local entries = FilterEntries(withPinToggle)
+function ns:ShowFilterMenu(owner, withMapItems)
+	local entries = MenuEntries(withMapItems)
 	if MenuUtil and MenuUtil.CreateContextMenu then
 		MenuUtil.CreateContextMenu(owner, function(_, root)
 			root:CreateTitle("Show ore")
@@ -153,9 +156,9 @@ function ns:ShowFilterMenu(owner, withPinToggle)
 				end
 			end
 		end)
-	elseif UIDropDownMenu_Initialize and ToggleDropDownMenu then
-		menuFrame = menuFrame or CreateFrame("Frame", "VeinKeeperFilterMenu", UIParent, "UIDropDownMenuTemplate")
-		UIDropDownMenu_Initialize(menuFrame, function(_, level)
+	elseif UIDropDownMenu_Initialize then
+		dropDown = dropDown or CreateFrame("Frame", "VeinKeeperFilterMenu", UIParent, "UIDropDownMenuTemplate")
+		UIDropDownMenu_Initialize(dropDown, function(_, level)
 			local info = UIDropDownMenu_CreateInfo()
 			info.text, info.isTitle, info.notCheckable = "Show ore", true, true
 			UIDropDownMenu_AddButton(info, level)
@@ -168,37 +171,30 @@ function ns:ShowFilterMenu(owner, withPinToggle)
 				end
 			end
 		end, "MENU")
-		ToggleDropDownMenu(1, nil, menuFrame, owner, 0, 0)
+		ToggleDropDownMenu(1, nil, dropDown, owner, 0, 0)
 	end
-end
-
-local function FilterButton(parent, y)
-	local label = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-	label:SetPoint("TOPLEFT", 22, y)
-	label:SetText("Show only this ore:")
-	local b = CreateFrame("Button", NextName("Button"), parent, "UIPanelButtonTemplate")
-	b:SetSize(130, 22)
-	b:SetPoint("TOPRIGHT", -18, y + 5)
-	b:SetScript("OnClick", function(self) ns:ShowFilterMenu(self) end)
-	b.Refresh = function()
-		local only = ns.db.settings.only
-		b:SetText(only and ns:OreLabel(only) or "All ores")
-	end
-	controls[#controls + 1] = b
 end
 
 ---------------------------------------------------------------------------
 -- Panel
 ---------------------------------------------------------------------------
-local function pct(v) return v .. "%" end
-local function toAlpha(v) return v / 100 end
-local function fromAlpha(a) return floor((a or 1) * 100 + 0.5) end
-local function same(v) return v end
-local function px(v) return v .. " px" end
+local IN_RANGE = { "ring", "hide", "icon" }
+local IN_RANGE_LABEL = { ring = "Hollow ring", hide = "Hidden", icon = "Full icon" }
+
+local function CyclePinsInView()
+	local s = ns.db.settings
+	for i, mode in ipairs(IN_RANGE) do
+		if mode == s.inRange then
+			s.inRange = IN_RANGE[i % #IN_RANGE + 1]
+			break
+		end
+	end
+	ns:Changed()
+end
 
 local function CreatePanel()
 	panel = CreateFrame("Frame", "VeinKeeperSettings", UIParent, "BasicFrameTemplateWithInset")
-	panel:SetSize(330, 734)
+	panel:SetSize(WIDTH, HEIGHT)
 	panel:SetPoint("CENTER")
 	panel:SetFrameStrata("DIALOG")
 	panel:SetToplevel(true)
@@ -212,49 +208,48 @@ local function CreatePanel()
 	panel:Hide()
 	tinsert(UISpecialFrames, "VeinKeeperSettings") -- Esc closes it
 
-	local title = panel.TitleText
-	if not title then
-		title = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-		title:SetPoint("TOP", 0, -5)
-	end
+	local title = panel.TitleText or panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+	if not panel.TitleText then title:SetPoint("TOP", 0, -5) end
 	title:SetText("VeinKeeper")
 
-	local restyle = function() ns:RestyleWorldPins() end
-	local y = -34
-	Header(panel, "Pins", y)
-	Check(panel, "Show pins on the world map", "worldPins", y - 18)
-	Check(panel, "Show pins on the minimap", "minimapPins", y - 42)
-	Check(panel, "Use the game's ore icons", "gameIcons", y - 66)
-	Check(panel, "Dim spots above my Mining skill", "skillDim", y - 90)
-	Check(panel, "Save veins I hover on the minimap (Find Minerals)", "recordSeen", y - 114)
+	-- left: what pins look like
+	Header(LEFT, -36, "Pins")
+	Check(LEFT, -56, "World map pins", "worldPins")
+	Check(LEFT, -80, "Minimap pins", "minimapPins")
+	Check(LEFT, -104, "Game ore icons", "gameIcons",
+		"Off: VeinKeeper's own drawn icons. Season of Discovery quest nodes always use drawn icons.")
+	Check(LEFT, -128, "Dim spots above my Mining skill", "skillDim")
+	Slider(LEFT, -162, "World map opacity", "worldAlpha", 10, 100, 5, "%", 100)
+	Slider(LEFT, -204, "Minimap opacity", "minimapAlpha", 10, 100, 5, "%", 100)
+	Slider(LEFT, -246, "World map icon size", "worldSize", 8, 32, 1, " px")
+	Slider(LEFT, -288, "Minimap icon size", "minimapSize", 8, 24, 1, " px")
 
-	y = y - 160
-	Slider(panel, "World map pin opacity", "worldAlpha", y, 10, 100, 5, pct, toAlpha, fromAlpha, restyle)
-	Slider(panel, "Minimap pin opacity", "minimapAlpha", y - 42, 10, 100, 5, pct, toAlpha, fromAlpha)
-	Slider(panel, "World map icon size", "worldSize", y - 84, 8, 32, 1, px, same, same, restyle)
-	Slider(panel, "Minimap icon size", "minimapSize", y - 126, 8, 24, 1, px, same, same)
-	Slider(panel, "Respawn timer (ring turns green after)", "readyMin", y - 168, 1, 60, 1,
-		function(v) return v .. " min" end, same, same, restyle)
-	Slider(panel, "Far spots shown on the minimap edge", "edgeCount", y - 210, 0, 10, 1,
-		tostring, same, same)
-	Slider(panel, "Edge: hide spots further than", "edgeMaxYards", y - 252, 100, 2500, 50,
-		function(v) return v .. " yd" end, same, same)
+	-- right: respawns and the minimap
+	Header(RIGHT, -36, "Respawns & minimap")
+	Slider(RIGHT, -60, "Likely back after", "readyMin", 1, 60, 1, " min")
+	Slider(RIGHT, -102, "Far spots on the minimap rim", "edgeCount", 0, 10, 1, "")
+	Slider(RIGHT, -144, "Rim: hide spots further than", "edgeMaxYards", 100, 2500, 50, " yd")
+	Check(RIGHT, -186, "Rim: only spots likely back", "edgeReadyOnly")
+	Check(RIGHT, -210, "Save veins hovered on the minimap", "recordSeen",
+		"With Find Minerals on, hovering a vein's yellow dot on the minimap saves it (blue ring) or marks a known spot as up.")
+	Choice(RIGHT, -244, "Spots in view with Find Minerals:", 100,
+		function() return IN_RANGE_LABEL[ns.db.settings.inRange] end, CyclePinsInView,
+		"Addons can't see tracking dots. Hollow ring: the game's yellow dot shows inside the ring when the vein is up.")
+	Choice(RIGHT, -274, "Show only this ore:", 120,
+		function() local only = ns.db.settings.only return only and ns:OreLabel(only) or "All ores" end,
+		function(self) ns:ShowFilterMenu(self) end)
 
-	y = y - 292
-	Check(panel, "Edge: only spots likely respawned", "edgeReadyOnly", y)
+	-- bottom: buttons
+	Header(LEFT, -332, "Buttons")
+	Header(RIGHT, -332, " ")
+	Check(LEFT, -352, "Minimap button", "button", nil, function() ns:UpdateMinimapButton() end)
+	Check(RIGHT, -352, "World map button", "mapButton", nil, function() ns:UpdateMapButton() end)
 
-	y = y - 38
-	InRangeButton(panel, y)
-	FilterButton(panel, y - 30)
-
-	y = y - 64
-	Header(panel, "Buttons", y)
-	Check(panel, "Minimap button", "button", y - 18, function() ns:UpdateMinimapButton() end)
-	Check(panel, "World map button", "mapButton", y - 42, function() ns:UpdateMapButton() end)
-
-	local count = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-	count:SetPoint("BOTTOMLEFT", 18, 14)
-	controls[#controls + 1] = { Refresh = function() count:SetText(#ns.db.spots .. " spots saved  |  /vk help for commands") end }
+	local footer = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+	footer:SetPoint("BOTTOMLEFT", LEFT + 2, 12)
+	controls[#controls + 1] = {
+		Refresh = function() footer:SetText(#ns.db.spots .. " spots saved   /vk help for commands") end,
+	}
 end
 
 function ns:ToggleSettings()
@@ -262,98 +257,4 @@ function ns:ToggleSettings()
 	panel:SetShown(not panel:IsShown())
 end
 
-table.insert(ns.listeners, RefreshControls)
-
----------------------------------------------------------------------------
--- World map button (top-right of the map): left-click settings,
--- right-click show/hide world map pins
----------------------------------------------------------------------------
-local mapButton
-
-local function CreateMapButton()
-	if mapButton or not WorldMapFrame then return end
-	local anchor = WorldMapFrame.ScrollContainer or WorldMapFrame
-	mapButton = CreateFrame("Button", "VeinKeeperWorldMapButton", WorldMapFrame)
-	mapButton:SetSize(31, 31)
-	mapButton:SetFrameStrata(WorldMapFrame:GetFrameStrata())
-	mapButton:SetFrameLevel(2000) -- above the map canvas and its pins
-	mapButton:SetPoint("TOPRIGHT", anchor, "TOPRIGHT", -6, -6)
-	mapButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-	mapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
-
-	local bg = mapButton:CreateTexture(nil, "BACKGROUND")
-	bg:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
-	bg:SetSize(20, 20)
-	bg:SetPoint("CENTER")
-	local icon = mapButton:CreateTexture(nil, "ARTWORK")
-	icon:SetTexture("Interface\\Icons\\Trade_Mining")
-	icon:SetSize(18, 18)
-	icon:SetPoint("CENTER")
-	icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-	local border = mapButton:CreateTexture(nil, "OVERLAY")
-	border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
-	border:SetSize(53, 53)
-	border:SetPoint("TOPLEFT")
-
-	mapButton:SetScript("OnClick", function(self, btn)
-		if btn == "RightButton" then
-			GameTooltip:Hide()
-			ns:ShowFilterMenu(self, true)
-		else
-			ns:ToggleSettings()
-		end
-	end)
-	mapButton:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-		GameTooltip:AddLine("VeinKeeper")
-		GameTooltip:AddLine("Left-click: settings", 0.7, 0.7, 0.7)
-		local only = ns.db.settings.only
-		if only then GameTooltip:AddLine("Showing only " .. ns:OreLabel(only), 1, 0.82, 0) end
-		GameTooltip:AddLine("Right-click: ore filter, show / hide pins", 0.7, 0.7, 0.7)
-		GameTooltip:Show()
-	end)
-	mapButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
-end
-
-function ns:UpdateMapButton()
-	if self.db.settings.mapButton then
-		CreateMapButton()
-		if mapButton then mapButton:Show() end
-	elseif mapButton then
-		mapButton:Hide()
-	end
-end
-
----------------------------------------------------------------------------
--- Addon compartment (the minimap's addon list button, which EllesmereUI also
--- shows). Registered through the TOC's AddonCompartmentFunc* fields, so these
--- must be globals. Blizzard passes the mouse button second; the first argument
--- is the addon name or the menu entry frame depending on the call.
----------------------------------------------------------------------------
-function VeinKeeper_OnCompartmentClick(_, mouseButton)
-	if mouseButton == "RightButton" then
-		ns:ToggleAllPins()
-	else
-		ns:ToggleSettings()
-	end
-end
-
-function VeinKeeper_OnCompartmentEnter(addonOrFrame, frame)
-	local owner = type(addonOrFrame) == "table" and addonOrFrame or frame
-	if type(owner) ~= "table" then return end
-	GameTooltip:SetOwner(owner, "ANCHOR_LEFT")
-	GameTooltip:AddLine("VeinKeeper")
-	GameTooltip:AddLine(#ns.db.spots .. " spots saved", 1, 1, 1)
-	GameTooltip:AddLine("Left-click: settings", 0.7, 0.7, 0.7)
-	GameTooltip:AddLine("Right-click: show / hide all pins", 0.7, 0.7, 0.7)
-	GameTooltip:Show()
-end
-
-function VeinKeeper_OnCompartmentLeave()
-	GameTooltip:Hide()
-end
-
-function ns:OnLogin()
-	self:UpdateMinimapButton()
-	self:UpdateMapButton()
-end
+ns:On("VK_DATA", RefreshControls)
