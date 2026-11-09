@@ -18,3 +18,4 @@ Minimap.lua
 Buttons.lua
 Config.lua
 Commands.lua
+Probe.lua

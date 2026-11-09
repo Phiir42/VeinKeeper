@@ -144,6 +144,8 @@ SlashCmdList.VEINKEEPER = function(msg)
 		ns:Changed()
 	elseif cmd == "debug" then
 		ns:ToggleHoverDebug()
+	elseif cmd == "probe" then
+		ns:ToggleProbe()
 	elseif cmd == "next" then
 		ns:Next()
 	elseif cmd == "near" then
