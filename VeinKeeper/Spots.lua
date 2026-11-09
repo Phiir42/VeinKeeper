@@ -15,7 +15,8 @@ local _, ns = ...
 local MERGE_YARDS = 15   -- spots closer than this are the same spawn point
 local MULTITAP_SEC = 120 -- re-mining within this window is the same visit
 local AT_SPOT_YARDS = 40 -- "standing at the spot" for /vk next
-local SEEN_REACH = 40    -- how far a hovered position can be from its vein
+local SEEN_REACH = 60    -- most two hovers of the same vein can be apart (zoomed out)
+local ADOPT_REACH = 40   -- mining takes over a hovered spot of that ore this close
 local floor, sqrt, min, max, time = math.floor, math.sqrt, math.min, math.max, time
 
 ---------------------------------------------------------------------------
@@ -238,7 +239,7 @@ function ns:Record(name)
 	local wx, wy, inst = self:MapToWorld(mapID, x, y)
 	local now = time()
 	-- a spot only seen on the minimap may be off by its hover error
-	local spot = Closest(wx, wy, inst, mapID, x, y, name, SEEN_REACH, NeverMined)
+	local spot = Closest(wx, wy, inst, mapID, x, y, name, ADOPT_REACH, NeverMined)
 	if not spot then
 		NewSpot(mapID, x, y, wx, wy, inst, name, true, now)
 		return self:Changed()
@@ -276,22 +277,67 @@ function ns:Record(name)
 	self:Changed()
 end
 
--- A Find Minerals dot for `name` was hovered at this position, which is only
--- accurate to `slop` yards (the dot's tooltip shows anywhere near it). Marks
--- the spot there as up, or saves a new "seen" spot. Repeated hovers of a
--- never-mined spot average out the error. Seeing a vein is not a visit.
+local function SharesOre(a, b)
+	for name in pairs(a.ores) do
+		if b.ores[name] then return true end
+	end
+	return false
+end
+
+-- Fold never-mined spot `s` into `into`: the ores and the latest sighting;
+-- if `into` is never-mined too, its position becomes the weighted average.
+local function Fold(into, s)
+	for name in pairs(s.ores) do into.ores[name] = into.ores[name] or 0 end
+	into.seenAt = max(into.seenAt or 0, s.seenAt or 0)
+	if not into.last and into.map == s.map then
+		local a, b = into.seenN or 1, s.seenN or 1
+		into.x = (into.x * a + s.x * b) / (a + b)
+		into.y = (into.y * a + s.y * b) / (a + b)
+		into.seenN = min(a + b, 20)
+		into.wx, into.wy, into.inst = ns:MapToWorld(into.map, into.x, into.y)
+	end
+end
+
+-- Fold every never-mined spot sharing an ore with `spot` within `reach` into
+-- it. Returns true if any went.
+local function Absorb(spot, reach)
+	if not spot.wx then return end
+	local gone
+	for _, t in ipairs(ns.db.spots) do
+		if t ~= spot and not t.last and t.wx and t.inst == spot.inst and SharesOre(t, spot) then
+			local dx, dy = t.wx - spot.wx, t.wy - spot.wy
+			if dx * dx + dy * dy < reach * reach then
+				Fold(spot, t)
+				gone = gone or {}
+				gone[t] = true
+			end
+		end
+	end
+	if gone then
+		ns:RemoveSpots(function(s) return gone[s] end)
+		return true
+	end
+end
+
+-- A Find Minerals dot for `name` was hovered around this position, which is
+-- only accurate to `slop` yards (the dot's tooltip shows anywhere near it).
+-- Marks the spot there as up, or saves a new "seen" spot. Never-mined spots
+-- of the same ore within reach are one vein: they average together.
+-- Seeing a vein is not a visit.
 function ns:RecordSeen(name, wx, wy, inst, mapID, x, y, slop)
 	if self.db.ignore[name] then return end
 	local now = time()
-	-- zoomed in, the error is small and close veins stay apart
-	local reach = min(SEEN_REACH, slop or SEEN_REACH)
+	-- two hovers can each be `slop` off, in opposite directions; zoomed in,
+	-- the reach shrinks so close veins stay apart
+	local reach = max(MERGE_YARDS, min(SEEN_REACH, 2 * (slop or SEEN_REACH)))
 	local spot, d = Closest(wx, wy, inst, mapID, x, y, name, reach)
 	if self.hoverDebug then
-		self:Print("  merge reach %d yd: %s", max(reach, MERGE_YARDS),
+		self:Print("  merge reach %d yd: %s", reach,
 			spot and ("joined a spot %d yd away"):format(d) or "no spot in reach, new spot")
 	end
 	if not spot then
 		NewSpot(mapID, x, y, wx, wy, inst, name, false, now)
+		Absorb(self.db.spots[#self.db.spots], reach)
 		return self:Changed()
 	end
 	-- right after mining, the dot can linger a moment: that isn't "up"
@@ -312,49 +358,30 @@ function ns:RecordSeen(name, wx, wy, inst, mapID, x, y, slop)
 		if not spot.last then spot.lastOre = name end
 		moved = true
 	end
-	if moved then
+	if Absorb(spot, reach) or moved then
 		self:Changed()
 	elseif not wasUp then
 		self:Restyle()
 	end
 end
 
--- One-time cleanup at load: fold never-mined spots into a nearby spot with
--- the same ore (a mined one first), from before hovers were averaged.
+-- At load: fold never-mined spots into a nearby spot with the same ore,
+-- mined ones first (cleans up hovers saved before they were merged).
 local function MergeSeenDuplicates()
-	local spots, gone = ns.db.spots, {}
-	for _, s in ipairs(spots) do
-		if not s.last and s.wx and not gone[s] then
-			local best, bestScore
-			for _, t in ipairs(spots) do
-				if t ~= s and not gone[t] and t.wx and t.inst == s.inst then
-					local dx, dy = t.wx - s.wx, t.wy - s.wy
-					local d = sqrt(dx * dx + dy * dy)
-					local shares = false
-					for name in pairs(s.ores) do
-						if t.ores[name] then shares = true break end
-					end
-					if shares and d < SEEN_REACH then
-						local score = d - (t.last and 1000 or 0) -- prefer a mined spot
-						if not bestScore or score < bestScore then best, bestScore = t, score end
-					end
-				end
-			end
-			if best then
-				gone[s] = true
-				for name in pairs(s.ores) do best.ores[name] = best.ores[name] or 0 end
-				best.seenAt = max(best.seenAt or 0, s.seenAt or 0)
-				if not best.last and best.map == s.map then
-					local a, b = best.seenN or 1, s.seenN or 1
-					best.x = (best.x * a + s.x * b) / (a + b)
-					best.y = (best.y * a + s.y * b) / (a + b)
-					best.seenN = min(a + b, 20)
-					best.wx, best.wy, best.inst = ns:MapToWorld(best.map, best.x, best.y)
-				end
+	local present = {}
+	for _, s in ipairs(ns.db.spots) do present[s] = true end
+	local snapshot = {}
+	for i, s in ipairs(ns.db.spots) do snapshot[i] = s end
+	local function pass(mined, reach)
+		for _, s in ipairs(snapshot) do
+			if present[s] and (s.last ~= nil) == mined and Absorb(s, reach) then
+				wipe(present)
+				for _, t in ipairs(ns.db.spots) do present[t] = true end
 			end
 		end
 	end
-	if next(gone) then ns:RemoveSpots(function(s) return gone[s] end) end
+	pass(true, ADOPT_REACH)
+	pass(false, SEEN_REACH)
 end
 ns:On("VK_LOADED", MergeSeenDuplicates)
 

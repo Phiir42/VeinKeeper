@@ -237,33 +237,43 @@ local function FrameName(f)
 	return (f.GetName and f:GetName()) or tostring(f)
 end
 
-local function CheckHover()
-	if not (GameTooltip:IsShown() and Minimap:IsMouseOver()) then
-		lastTip = nil
-		return
+-- The tooltip shows with the cursor anywhere within ~HOVER_SLOP_PX of the
+-- dot, so a single cursor position can be ~30 yd off when zoomed out. While
+-- the same tooltip is up, the world positions under the cursor are collected
+-- into a box; the box's centre is recorded when the tooltip goes away.
+-- Moving the cursor across the dot gives its centre.
+local hover -- { names, inst, mapID, b, slop, x0, x1, y0, y1, n }
+local hoverNames -- node names in the current tooltip, or false
+
+local function Flush()
+	local h = hover
+	hover = nil
+	if not h then return end
+	local wx, wy = (h.x0 + h.x1) / 2, (h.y0 + h.y1) / 2
+	local nx, ny = ns:WorldToMap(h.b, wx, wy)
+	if debug then
+		ns:Print("  recorded from %d samples over a %.0f x %.0f yd box", h.n, h.x1 - h.x0, h.y1 - h.y0)
 	end
-	local first, lines = GameTooltipTextLeft1:GetText(), GameTooltip:NumLines()
-	if first == lastTip and lines == lastTipLines then return end
-	lastTip, lastTipLines = first, lines
+	for _, name in ipairs(h.names) do ns:RecordSeen(name, wx, wy, h.inst, h.mapID, nx, ny, h.slop) end
+end
+
+-- Node names in the tooltip if it's the minimap's own tracking-dot tooltip.
+-- Forever shows that owned by UIParent; other addons' pins own theirs.
+local function ReadTooltip(lines)
 	local owner = GameTooltip:GetOwner()
 	if debug then
-		ns:Print("hover: tooltip owner %s (parent %s), Find Minerals %s, %d lines:",
-			FrameName(owner), FrameName(owner and owner.GetParent and owner:GetParent()),
-			tracking and "on" or "off", lines)
+		ns:Print("hover: tooltip owner %s, Find Minerals %s, %d lines:",
+			FrameName(owner), tracking and "on" or "off", lines)
 		for i = 1, lines do
 			print(("  %d: %s"):format(i, (_G["GameTooltipTextLeft" .. i]:GetText() or ""):gsub("|", "||")))
 		end
 	end
-	-- Only the minimap's own tooltip for tracking dots. Forever shows it owned
-	-- by UIParent; other addons' minimap pins own their tooltips themselves.
-	if owner ~= Minimap and owner ~= UIParent then return end
-	if GameTooltip:GetUnit() or not (tracking and ns.db.settings.recordSeen) then return end
-
+	if owner ~= Minimap and owner ~= UIParent then return false end
+	if GameTooltip:GetUnit() or not (tracking and ns.db.settings.recordSeen) then return false end
 	local names
 	for i = 1, lines do
-		local text = _G["GameTooltipTextLeft" .. i]:GetText()
 		-- several dots under the cursor are listed one per line, sometimes in one string
-		for line in (text or ""):gmatch("[^\n]+") do
+		for line in (_G["GameTooltipTextLeft" .. i]:GetText() or ""):gmatch("[^\n]+") do
 			local name = CleanLine(line)
 			if ns.NODES[name] then
 				names = names or {}
@@ -271,7 +281,21 @@ local function CheckHover()
 			end
 		end
 	end
-	if not names then return end
+	return names or false
+end
+
+local function CheckHover()
+	if not (GameTooltip:IsShown() and Minimap:IsMouseOver()) then
+		lastTip = nil
+		return Flush()
+	end
+	local first, lines = GameTooltipTextLeft1:GetText(), GameTooltip:NumLines()
+	if first ~= lastTip or lines ~= lastTipLines then
+		lastTip, lastTipLines = first, lines
+		Flush()
+		hoverNames = ReadTooltip(lines)
+	end
+	if not hoverNames then return end
 
 	local mapID, px, py = ns:PlayerMapPos()
 	local b = mapID and ns:Basis(mapID)
@@ -287,15 +311,25 @@ local function CheckHover()
 		local fc, fs = cos(f), sin(f)
 		x, y = x * fc - y * fs, x * fs + y * fc -- undo the minimap rotation
 	end
-	local nwx, nwy = ns:Offset(b, wx, wy, x, -y)
-	local nx, ny = ns:WorldToMap(b, nwx, nwy)
-	local slop = HOVER_SLOP_PX / scale -- yards the cursor can be off the dot
-	if debug then
-		local _, yardR = Scale()
-		ns:Print("  cursor %.0f yd east, %.0f yd north of you; minimap %.0f px wide = %.0f yd (%s, zoom %d)",
-			x, y, Minimap:GetWidth(), yardR * 2, indoors and "indoor" or "outdoor", Minimap:GetZoom())
+	local hx, hy = ns:Offset(b, wx, wy, x, -y)
+	local h = hover
+	if not h or h.inst ~= inst then
+		Flush()
+		hover = {
+			names = hoverNames, inst = inst, mapID = mapID, b = b,
+			slop = HOVER_SLOP_PX / scale, -- yards the cursor can be off the dot
+			x0 = hx, x1 = hx, y0 = hy, y1 = hy, n = 1,
+		}
+		if debug then
+			local _, yardR = Scale()
+			ns:Print("  cursor %.0f yd east, %.0f yd north of you; minimap %.0f px = %.0f yd (zoom %d)",
+				x, y, Minimap:GetWidth(), yardR * 2, Minimap:GetZoom())
+		end
+		return
 	end
-	for _, name in ipairs(names) do ns:RecordSeen(name, nwx, nwy, inst, mapID, nx, ny, slop) end
+	h.n = h.n + 1
+	h.x0, h.x1 = min(h.x0, hx), max(h.x1, hx)
+	h.y0, h.y1 = min(h.y0, hy), max(h.y1, hy)
 end
 
 ---------------------------------------------------------------------------
