@@ -11,6 +11,8 @@ local DEFAULTS = {
 	edgeCount = 3,      -- nearest out-of-range spots pinned to the minimap edge
 	readyMin = 10,      -- minutes after mining before a spot is shown as "probably back"
 	skillDim = true,    -- dim spots above your Mining skill
+	gameIcons = true,   -- use the game's ore item icons (false = VeinKeeper's drawn icons)
+	inRange = "ring",   -- minimap spots in range while Find Minerals is on: "ring", "hide" or "icon"
 	button = true,
 	buttonAngle = 215,
 }
@@ -398,6 +400,8 @@ local function Help()
 	print("  /vk edge <0-10> - nearest far spots on minimap edge (" .. s.edgeCount .. ")")
 	print("  /vk ready <minutes> - when a spot counts as respawned (" .. s.readyMin .. ")")
 	print("  /vk skill - dim spots above your Mining skill " .. on(s.skillDim))
+	print("  /vk icons - game ore icons " .. on(s.gameIcons) .. " (off = drawn icons)")
+	print("  /vk inrange ring|hide|icon - nearby spots while Find Minerals is on (" .. s.inRange .. ")")
 	print("  /vk button - minimap button " .. on(s.button))
 	print("  /vk near - list the closest saved spots")
 	print("  /vk ignore <Node Name> | /vk unignore <Node Name> | /vk ignore")
@@ -439,6 +443,10 @@ SlashCmdList.VEINKEEPER = function(msg)
 		s.readyMin = math.max(1, math.min(1440, floor(tonumber(rest))))
 	elseif cmd == "skill" then
 		s.skillDim = not s.skillDim
+	elseif cmd == "icons" then
+		s.gameIcons = not s.gameIcons
+	elseif cmd == "inrange" and (rest == "ring" or rest == "hide" or rest == "icon") then
+		s.inRange = rest
 	elseif cmd == "button" then
 		s.button = not s.button
 	elseif cmd == "near" then

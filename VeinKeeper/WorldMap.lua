@@ -5,9 +5,19 @@ local TEMPLATE = "VeinKeeperPinTemplate"
 ---------------------------------------------------------------------------
 -- Shared pin look (used by the minimap too)
 ---------------------------------------------------------------------------
-function ns:StylePin(pin, spot)
+-- ringOnly: draw just the freshness ring with an empty centre, so a Find
+-- Minerals blip underneath shows through it (used on the minimap).
+function ns:StylePin(pin, spot, ringOnly)
 	pin.spot = spot
-	pin.icon:SetTexture(self:NodeIcon(self:DisplayOre(spot)))
+	local icon, isItem = self:NodeIcon(self:DisplayOre(spot))
+	pin.icon:SetTexture(icon)
+	-- item icons have a baked-in border; crop it so the round mask shows only the ore
+	if isItem then
+		pin.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+	else
+		pin.icon:SetTexCoord(0, 1, 0, 1)
+	end
+	pin.icon:SetShown(not ringOnly)
 	-- the ring shows freshness: red = just mined, yellow = soon, green = likely back
 	local r, g, b = self:Freshness(spot)
 	pin.ring:SetVertexColor(r, g, b, 1)
@@ -20,6 +30,12 @@ function ns:CreatePinTextures(pin)
 	pin.icon = pin:CreateTexture(nil, "ARTWORK")
 	pin.icon:SetPoint("TOPLEFT", 1, -1)
 	pin.icon:SetPoint("BOTTOMRIGHT", -1, 1)
+	if pin.CreateMaskTexture then
+		local mask = pin:CreateMaskTexture()
+		mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+		mask:SetAllPoints(pin.icon)
+		pin.icon:AddMaskTexture(mask)
+	end
 	pin.ring = pin:CreateTexture(nil, "OVERLAY")
 	pin.ring:SetAllPoints()
 	pin.ring:SetTexture(self.RING)

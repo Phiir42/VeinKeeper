@@ -58,8 +58,33 @@ local function Scan(wx, wy, inst)
 	end
 end
 
-local function Place(p, spot, x, y, label)
-	ns:StylePin(p, spot)
+-- Is Find Minerals the active tracking? Addons can't see tracking blips, so when
+-- it is, in-range pins become hollow rings: if the vein is up, the game's own
+-- yellow dot shows inside the ring.
+local FIND_MINERALS = 2580
+local tracking = false
+local function UpdateTracking()
+	tracking = false
+	if C_Minimap and C_Minimap.GetNumTrackingTypes and C_Minimap.GetTrackingInfo then
+		local findName = C_Spell and C_Spell.GetSpellName and C_Spell.GetSpellName(FIND_MINERALS)
+			or (GetSpellInfo and GetSpellInfo(FIND_MINERALS))
+		for i = 1, C_Minimap.GetNumTrackingTypes() do
+			local info = C_Minimap.GetTrackingInfo(i)
+			if type(info) == "table" and info.active
+				and (info.spellID == FIND_MINERALS or (findName and info.name == findName)) then
+				tracking = true
+				return
+			end
+		end
+	elseif GetTrackingTexture and GetSpellTexture then
+		local tex = GetTrackingTexture()
+		tracking = tex ~= nil and tex == GetSpellTexture(FIND_MINERALS)
+	end
+end
+
+local function Place(p, spot, x, y, label, ringOnly)
+	ns:StylePin(p, spot, ringOnly)
+	p:SetSize(ringOnly and 18 or 14, ringOnly and 18 or 14)
 	p:ClearAllPoints()
 	p:SetPoint("CENTER", Minimap, "CENTER", x, y)
 	p.text:SetText(label or "")
@@ -90,6 +115,10 @@ local function Update()
 				if facing then fc, fs = cos(facing), sin(facing) end
 			end
 
+			local mode = s.inRange -- "ring", "hide" or "icon"
+			local ringOnly = tracking and mode == "ring"
+			local hideInRange = tracking and mode == "hide"
+
 			local nEdge = 0
 			for _, spot in ipairs(candidates) do
 				local east, south = ns:Delta(b, wx, wy, spot.wx, spot.wy)
@@ -102,8 +131,10 @@ local function Update()
 					inside = x * x + y * y < (yardR * 0.94) ^ 2
 				end
 				if inside then
-					used = used + 1
-					Place(GetPin(used), spot, x * scale, y * scale)
+					if not hideInRange then
+						used = used + 1
+						Place(GetPin(used), spot, x * scale, y * scale, nil, ringOnly)
+					end
 				else
 					nEdge = nEdge + 1
 					local e = edge[nEdge] or {}
@@ -149,6 +180,11 @@ local zoomWatch = CreateFrame("Frame")
 zoomWatch:RegisterEvent("MINIMAP_UPDATE_ZOOM")
 zoomWatch:RegisterEvent("PLAYER_ENTERING_WORLD")
 zoomWatch:SetScript("OnEvent", UpdateIndoors)
+
+local trackWatch = CreateFrame("Frame")
+trackWatch:RegisterEvent("MINIMAP_UPDATE_TRACKING")
+trackWatch:RegisterEvent("PLAYER_ENTERING_WORLD")
+trackWatch:SetScript("OnEvent", UpdateTracking)
 
 ---------------------------------------------------------------------------
 -- Minimap button: left-click toggles all pins, right-click minimap pins, drag to move
