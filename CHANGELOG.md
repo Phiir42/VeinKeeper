@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.3
 
 **New**
 - Pins too close to hover one by one: a pin's tooltip lists the spots overlapping it under "Also here:", with each one's state.
