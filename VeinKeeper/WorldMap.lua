@@ -29,7 +29,9 @@ function VeinKeeperPinMixin:OnAcquired(spot, x, y)
 	Style(self, spot)
 end
 
-function VeinKeeperPinMixin:OnMouseEnter() ns:ShowTooltip(self, self.spot) end
+function VeinKeeperPinMixin:OnMouseEnter()
+	ns:ShowTooltip(self, self.spot, ns:Overlapping(self, self:GetMap():EnumeratePinsByTemplate(TEMPLATE)))
+end
 function VeinKeeperPinMixin:OnMouseLeave() GameTooltip:Hide() end
 function VeinKeeperPinMixin:OnClick(button)
 	-- pins swallow clicks, so keep the map's right-click zoom-out working

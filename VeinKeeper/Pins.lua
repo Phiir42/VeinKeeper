@@ -40,7 +40,62 @@ function ns:StylePin(pin, spot, ringOnly, alphaMul)
 	pin:SetAlpha((pin.isMinimap and s.minimapAlpha or s.worldAlpha) * (ok and 1 or 0.55) * (alphaMul or 1))
 end
 
-function ns:ShowTooltip(owner, spot)
+-- Other pins over or touching `owner` (from the pins `...` iterates),
+-- nearest first: on a zoomed-out map they're too close to hover one by one.
+function ns:Overlapping(owner, ...)
+	local ox, oy = owner:GetCenter()
+	if not ox then return end
+	local scale = owner:GetEffectiveScale()
+	local reach = owner:GetWidth() * scale * 1.25
+	ox, oy = ox * scale, oy * scale
+	local list
+	for p in ... do
+		if p ~= owner and p.spot and not p.rimPin and p:IsShown() then
+			local x, y = p:GetCenter()
+			if x then
+				local s = p:GetEffectiveScale()
+				local dx, dy = x * s - ox, y * s - oy
+				local d = dx * dx + dy * dy
+				if d < reach * reach then
+					list = list or {}
+					list[#list + 1] = { spot = p.spot, d = d }
+				end
+			end
+		end
+	end
+	if list then table.sort(list, function(a, b) return a.d < b.d end) end
+	return list
+end
+
+-- One line per spot: its ore and state, coloured by freshness.
+local MAX_LISTED = 8
+function ns:AddSummaries(tt, list)
+	for i, e in ipairs(list) do
+		if i > MAX_LISTED then
+			tt:AddLine(("+ %d more"):format(#list - MAX_LISTED), GREY, GREY, GREY)
+			break
+		end
+		local spot = e.spot
+		local ore = self:DisplayOre(spot)
+		local c = self:NodeInfo(ore).color
+		local r, g, b, ready = self:Freshness(spot)
+		local state
+		if self:SeenUp(spot) then
+			state = "seen up " .. self:FormatTime(time() - spot.seenAt) .. " ago"
+		elseif not spot.last then
+			state = "seen, not mined"
+		elseif ready then
+			state = "likely back"
+		else
+			state = "back in " .. self:FormatTime(self:Wait(spot))
+		end
+		tt:AddDoubleLine(ore, state, c[1], c[2], c[3], r, g, b)
+	end
+end
+
+-- nearby: Overlapping()'s list, listed under the spot. noClick: the pin lets
+-- clicks through (a minimap ring), so no click hint.
+function ns:ShowTooltip(owner, spot, nearby, noClick)
 	if not spot then return end
 	local tt = GameTooltip
 	tt:SetOwner(owner, "ANCHOR_RIGHT")
@@ -79,8 +134,15 @@ function ns:ShowTooltip(owner, spot)
 	if not self:CanMine(spot) then
 		tt:AddLine(("Needs Mining %d (you have %d)"):format(self:MinSkill(spot), self:SkillRank()), 1, 0.3, 0.3)
 	end
-	tt:AddLine(" ")
-	tt:AddLine("Click: waypoint   Shift + right-click: forget", 0.6, 0.6, 0.6)
+	if nearby then
+		tt:AddLine(" ")
+		tt:AddLine("Also here:", 1, 0.82, 0)
+		self:AddSummaries(tt, nearby)
+	end
+	if not noClick then
+		tt:AddLine(" ")
+		tt:AddLine("Click: waypoint   Shift + right-click: forget", 0.6, 0.6, 0.6)
+	end
 	tt:Show()
 end
 

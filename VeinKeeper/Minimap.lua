@@ -1,7 +1,8 @@
 -- Minimap pins: saved spots in view, the nearest far spots on the rim, and
 -- saving veins whose Find Minerals dot you hover.
 --
--- Cost: a 10 Hz timer (no per-frame OnUpdate) that returns at once unless
+-- Cost: a 10 Hz timer (per-frame work only while a dot's tooltip is up, to
+-- sample the cursor) that returns at once unless
 -- you moved, turned (rotating minimap), zoomed or something changed. Saved spots are only searched again
 -- after moving RESCAN_YARDS or a data change; pins are only restyled when
 -- their spot or the style version changes.
@@ -81,6 +82,16 @@ end
 ---------------------------------------------------------------------------
 -- Pins
 ---------------------------------------------------------------------------
+-- Pins in use are always pins[1..n], the rest hidden.
+local function ShownPins()
+	local i = 0
+	return function()
+		i = i + 1
+		local p = pins[i]
+		if p and p:IsShown() then return p end
+	end
+end
+
 local function GetPin(i)
 	local p = pins[i]
 	if p then return p end
@@ -90,7 +101,7 @@ local function GetPin(i)
 	ns:CreatePinTextures(p)
 	p.label = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	p.label:SetPoint("TOP", p, "BOTTOM", 0, -1)
-	p:SetScript("OnEnter", function(self) ns:ShowTooltip(self, self.spot) end)
+	p:SetScript("OnEnter", function(self) ns:ShowTooltip(self, self.spot, ns:Overlapping(self, ShownPins())) end)
 	p:SetScript("OnLeave", function() GameTooltip:Hide() end)
 	p:SetScript("OnMouseUp", function(self, button) ns:PinClick(self, button) end)
 	pins[i] = p
@@ -244,16 +255,33 @@ end
 local hover -- { names, inst, mapID, b, slop, x0, x1, y0, y1, n }
 local hoverNames -- node names in the current tooltip, or false
 
+local sampler -- samples the cursor every frame, only while a dot's tooltip is up
+
 local function Flush()
 	local h = hover
 	hover = nil
+	if sampler then sampler:Hide() end
 	if not h then return end
+	-- wider than a dot's tooltip reaches, or the scale changed under it:
+	-- the tooltip outlived its dot, so this isn't a real hover
+	local spread = max(h.x1 - h.x0, h.y1 - h.y0)
+	if h.bad or spread > 2 * h.slop then
+		if debug then
+			ns:Print("  discarded: %s", h.bad or ("%d samples over %.0f yd, too spread out"):format(h.n, spread))
+		end
+		return
+	end
 	local wx, wy = (h.x0 + h.x1) / 2, (h.y0 + h.y1) / 2
 	local nx, ny = ns:WorldToMap(h.b, wx, wy)
+	-- the box's centre is the dot only if the cursor crossed it; otherwise
+	-- it's anywhere within slop, too rough to correct a mined spot with
+	local crossed = spread >= 0.6 * h.slop
+	local err = crossed and h.slop * 0.4 or nil
 	if debug then
-		ns:Print("  recorded from %d samples over a %.0f x %.0f yd box", h.n, h.x1 - h.x0, h.y1 - h.y0)
+		ns:Print("  recorded from %d samples over a %.0f x %.0f yd box%s", h.n, h.x1 - h.x0, h.y1 - h.y0,
+			crossed and "" or " (didn't cross the dot: position too rough to move a mined spot)")
 	end
-	for _, name in ipairs(h.names) do ns:RecordSeen(name, wx, wy, h.inst, h.mapID, nx, ny, h.slop) end
+	for _, name in ipairs(h.names) do ns:RecordSeen(name, wx, wy, h.inst, h.mapID, nx, ny, h.slop, err) end
 end
 
 -- Node names in the tooltip if it's the minimap's own tracking-dot tooltip.
@@ -268,7 +296,7 @@ local function ReadTooltip(lines)
 		end
 	end
 	if owner ~= Minimap and owner ~= UIParent then return false end
-	if GameTooltip:GetUnit() or not (tracking and ns.db.settings.recordSeen) then return false end
+	if GameTooltip:GetUnit() or not tracking then return false end
 	local names
 	for i = 1, lines do
 		-- several dots under the cursor are listed one per line, sometimes in one string
@@ -283,19 +311,9 @@ local function ReadTooltip(lines)
 	return names or false
 end
 
-local function CheckHover()
-	if not (GameTooltip:IsShown() and Minimap:IsMouseOver()) then
-		lastTip = nil
-		return Flush()
-	end
-	local first, lines = GameTooltipTextLeft1:GetText(), GameTooltip:NumLines()
-	if first ~= lastTip or lines ~= lastTipLines then
-		lastTip, lastTipLines = first, lines
-		Flush()
-		hoverNames = ReadTooltip(lines)
-	end
-	if not hoverNames then return end
-
+-- The world position under the cursor on the minimap: hx, hy, inst, the
+-- map basis and ID, pixels per yard, and the yards east / north of you.
+local function CursorWorld()
 	local mapID, px, py = ns:PlayerMapPos()
 	local b = mapID and ns:Basis(mapID)
 	if not b then return end
@@ -311,24 +329,125 @@ local function CheckHover()
 		x, y = x * fc - y * fs, x * fs + y * fc -- undo the minimap rotation
 	end
 	local hx, hy = ns:Offset(b, wx, wy, x, -y)
+	return hx, hy, inst, b, mapID, scale, x, y
+end
+
+-- The saved spots at a Find Minerals dot, in a tooltip of VeinKeeper's own
+-- under the game's (which redraws itself, wiping lines added to it).
+-- Matched by distance, not by pin: a mined spot is where you stood, a few
+-- yards off the dot, which is many pixels on a zoomed-in minimap.
+local dotTip
+local function Annotate(hx, hy, inst, _, _, scale)
+	if not hx then return end
+	local reach = max(10, 1.5 * HOVER_SLOP_PX / scale)
+	local list
+	for _, spot in ipairs(ns.db.spots) do
+		if spot.wx and spot.inst == inst and ns:IsShown(spot) then
+			local dx, dy = spot.wx - hx, spot.wy - hy
+			local d = dx * dx + dy * dy
+			if d < reach * reach then
+				list = list or {}
+				list[#list + 1] = { spot = spot, d = d }
+			end
+		end
+	end
+	if debug then ns:Print("  %d saved spots within %.0f yd of the cursor", list and #list or 0, reach) end
+	if not list then return end
+	table.sort(list, function(a, b) return a.d < b.d end)
+	if not dotTip then
+		dotTip = CreateFrame("GameTooltip", "VeinKeeperDotTooltip", UIParent, "GameTooltipTemplate")
+		GameTooltip:HookScript("OnHide", function() dotTip:Hide() end)
+	end
+	dotTip:SetOwner(GameTooltip, "ANCHOR_NONE")
+	dotTip:ClearAllPoints()
+	dotTip:SetPoint("TOPLEFT", GameTooltip, "BOTTOMLEFT", 0, -2)
+	dotTip:AddLine("VeinKeeper", 0.85, 0.63, 0.4)
+	ns:AddSummaries(dotTip, list)
+	dotTip:Show()
+end
+
+-- Rings let the mouse through to the game's dot, so they get no OnEnter:
+-- find the ring under the cursor by position instead.
+local function RingUnderCursor()
+	local cx, cy = GetCursorPosition()
+	for p in ShownPins() do
+		if p.ringOnly then
+			local s = p:GetEffectiveScale()
+			local x, y = p:GetCenter()
+			local r = p:GetWidth() / 2 + 2
+			local dx, dy = cx / s - x, cy / s - y
+			if dx * dx + dy * dy < r * r then return p end
+		end
+	end
+end
+
+local ringTip -- the ring whose tooltip VeinKeeper is showing
+
+local function CheckHover()
+	local over = Minimap:IsMouseOver()
+	local ring = over and RingUnderCursor()
+	local shown = GameTooltip:IsShown()
+	local owner = shown and GameTooltip:GetOwner()
+	if ringTip and ring ~= ringTip then
+		if owner == ringTip then GameTooltip:Hide(); shown = false end
+		ringTip = nil
+	end
+	-- a ring with no dot showing (the vein is down): VeinKeeper's own tooltip
+	if ring and not shown then
+		ringTip = ring
+		ns:ShowTooltip(ring, ring.spot, ns:Overlapping(ring, ShownPins()), true)
+		return
+	end
+	if not (shown and over) or (ringTip and owner == ringTip) then
+		lastTip = nil
+		return Flush()
+	end
+	local first, lines = GameTooltipTextLeft1:GetText(), GameTooltip:NumLines()
+	if first ~= lastTip or lines ~= lastTipLines then
+		Flush()
+		if dotTip then dotTip:Hide() end
+		hoverNames = ReadTooltip(lines)
+		if hoverNames then Annotate(CursorWorld()) end
+		lastTip, lastTipLines = first, lines
+	end
+	if not (hoverNames and ns.db.settings.recordSeen) then return end
+
+	local hx, hy, inst, b, mapID, scale, x, y = CursorWorld()
+	if not hx then return end
 	local h = hover
 	if not h or h.inst ~= inst then
 		Flush()
+		if not sampler then
+			sampler = CreateFrame("Frame")
+			sampler:SetScript("OnUpdate", function()
+				local s = hover
+				if not s or s.bad or not (GameTooltip:IsShown() and Minimap:IsMouseOver()) then return end
+				-- only samples of this same tooltip, at the scale it began at
+				if GameTooltipTextLeft1:GetText() ~= s.tip or GameTooltip:NumLines() ~= s.lines then return end
+				if Minimap:GetZoom() ~= s.zoom or indoors ~= s.indoors then
+					s.bad = "the minimap zoomed during the hover"
+					return
+				end
+				local sx, sy, sinst = CursorWorld()
+				if not sx or sinst ~= s.inst then return end
+				s.n = s.n + 1
+				s.x0, s.x1 = min(s.x0, sx), max(s.x1, sx)
+				s.y0, s.y1 = min(s.y0, sy), max(s.y1, sy)
+			end)
+		end
+		sampler:Show()
 		hover = {
 			names = hoverNames, inst = inst, mapID = mapID, b = b,
 			slop = HOVER_SLOP_PX / scale, -- yards the cursor can be off the dot
 			x0 = hx, x1 = hx, y0 = hy, y1 = hy, n = 1,
+			tip = lastTip, lines = lastTipLines, zoom = Minimap:GetZoom(), indoors = indoors,
 		}
 		if debug then
 			local _, yardR = Scale()
 			ns:Print("  cursor %.0f yd east, %.0f yd north of you; minimap %.0f px = %.0f yd (zoom %d)",
 				x, y, Minimap:GetWidth(), yardR * 2, Minimap:GetZoom())
 		end
-		return
 	end
-	h.n = h.n + 1
-	h.x0, h.x1 = min(h.x0, hx), max(h.x1, hx)
-	h.y0, h.y1 = min(h.y0, hy), max(h.y1, hy)
 end
 
 ---------------------------------------------------------------------------
@@ -338,7 +457,7 @@ local ticker
 
 local function Tick()
 	local s, cpu = ns.db.settings, ns.cpu
-	if debug or (tracking and s.recordSeen) then
+	if debug or tracking then
 		if cpu then ns:Timed("minimap: hover", CheckHover) else CheckHover() end
 	end
 	if s.minimapPins then
@@ -386,7 +505,13 @@ ns:On("PLAYER_ENTERING_WORLD", function()
 	UpdateIndoors()
 	UpdateTracking()
 end)
-ns:On("MINIMAP_UPDATE_ZOOM", UpdateIndoors)
+ns:On("MINIMAP_UPDATE_ZOOM", function()
+	UpdateIndoors()
+	-- a dot's tooltip can stay up through a zoom while the scale changes
+	-- under it: drop that hover, and ignore the tooltip until it changes
+	hover, hoverNames = nil, false
+	if sampler then sampler:Hide() end
+end)
 ns:On("ZONE_CHANGED_INDOORS", UpdateIndoors)
 ns:On("MINIMAP_UPDATE_TRACKING", UpdateTracking)
 ns:On("VK_DATA", function()

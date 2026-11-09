@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+**New**
+- Pins too close to hover one by one: a pin's tooltip lists the spots overlapping it under "Also here:", with each one's state.
+- Minimap tooltips with Find Minerals on: a ring shows its own tooltip, and a vein's yellow dot gets a VeinKeeper box under the game's tooltip.
+- Sweeping the cursor across a mined vein's yellow dot (zoomed in) moves the spot from where you stood onto the vein.
+
+**Fixed**
+- Neighbouring veins mined on the same trip no longer merge into one spot: each node is told apart by its ID from the loot window, so a multi-tap vein still counts as one visit.
+- Phantom "seen" spots from minimap hovers: a hover is dropped if the minimap zooms during it or the cursor strays too far, and mining a vein absorbs rough "seen" spots of it nearby.
+
 ## 1.2.2
 
 **Performance**

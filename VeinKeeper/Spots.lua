@@ -10,13 +10,17 @@
 --   visits, taps   separate visits / total mining casts
 --   minGap         shortest time between two visits: an upper bound on respawn
 --   posN           how many visits are averaged into the position
+--   fixErr         yards the position may be off, once Find Minerals hovers
+--                  moved it onto the vein (nil: it's where you stood to mine)
 local _, ns = ...
 
 local MERGE_YARDS = 15   -- spots closer than this are the same spawn point
-local MULTITAP_SEC = 120 -- re-mining within this window is the same visit
+local MULTITAP_SEC = 120 -- without node GUIDs: re-mining within this window is the same visit
+local RESPAWN_MIN = 300  -- no vein respawns faster than this
 local AT_SPOT_YARDS = 40 -- "standing at the spot" for /vk next
 local SEEN_REACH = 60    -- most two hovers of the same vein can be apart (zoomed out)
 local ADOPT_REACH = 40   -- mining takes over a hovered spot of that ore this close
+local STAND_YARDS = 4    -- how far from a vein you typically stand to mine it
 local floor, sqrt, min, max, time = math.floor, math.sqrt, math.min, math.max, time
 
 ---------------------------------------------------------------------------
@@ -194,11 +198,13 @@ end
 -- matches, so shared spawn points (Tin/Silver, Mithril/Truesilver) become one
 -- spot. Up to `reach` yards, only spots that have this ore and pass `accept`:
 -- hovered positions are rough, so they get a wider net.
-local function Closest(wx, wy, inst, mapID, x, y, name, reach, accept)
+local function Closest(wx, wy, inst, mapID, x, y, name, reach, accept, skip)
 	local best, bestD = nil, max(MERGE_YARDS, reach or 0)
 	for _, s in ipairs(ns.db.spots) do
 		local d
-		if wx and s.wx and s.inst == inst then
+		if skip and skip(s) then
+			-- ruled out
+		elseif wx and s.wx and s.inst == inst then
 			local dx, dy = s.wx - wx, s.wy - wy
 			d = sqrt(dx * dx + dy * dy)
 		elseif s.map == mapID then
@@ -231,23 +237,53 @@ local function NewSpot(mapID, x, y, wx, wy, inst, name, mined, now)
 	end
 end
 
--- You just mined `name` where you stand.
-function ns:Record(name)
+-- The node GUID last mined at each spot this session. A node keeps its GUID
+-- until it despawns, so it tells a multi-tap vein (same GUID) from a
+-- neighbouring vein a few yards away (another GUID).
+local nodeAt = setmetatable({}, { __mode = "k" })
+
+local function FindNode(guid)
+	for spot, g in pairs(nodeAt) do
+		if g == guid then return spot end
+	end
+end
+
+local Absorb -- below
+
+-- You just mined `name` where you stand; `guid` is the node's, if known.
+function ns:Record(name, guid)
 	if self.db.ignore[name] then return end
 	local mapID, x, y = self:PlayerMapPos()
 	if not mapID then return end -- instances have no map position
 	local wx, wy, inst = self:MapToWorld(mapID, x, y)
 	local now = time()
-	-- a spot only seen on the minimap may be off by its hover error
-	local spot = Closest(wx, wy, inst, mapID, x, y, name, ADOPT_REACH, NeverMined)
+	local spot = guid and FindNode(guid)
+	if not spot then
+		-- a spot whose node, mined minutes ago, had another GUID is a
+		-- different vein: that one can't have respawned yet
+		local function Other(s)
+			return guid and nodeAt[s] and nodeAt[s] ~= guid and now - (s.last or 0) < RESPAWN_MIN
+		end
+		-- a spot only seen on the minimap may be off by its hover error
+		spot = Closest(wx, wy, inst, mapID, x, y, name, ADOPT_REACH, NeverMined, Other)
+	end
 	if not spot then
 		NewSpot(mapID, x, y, wx, wy, inst, name, true, now)
+		local new = self.db.spots[#self.db.spots]
+		if guid then nodeAt[new] = guid end
+		Absorb(new, MERGE_YARDS)
 		return self:Changed()
 	end
 
 	local firstMine = not spot.last
 	local gap = now - (spot.last or 0)
-	local newVisit = gap > MULTITAP_SEC
+	local newVisit
+	if guid and nodeAt[spot] then
+		newVisit = nodeAt[spot] ~= guid
+	else
+		newVisit = gap > MULTITAP_SEC
+	end
+	if guid then nodeAt[spot] = guid end
 	if newVisit then
 		spot.visits = spot.visits + 1
 		spot.ores[name] = (spot.ores[name] or 0) + 1
@@ -262,7 +298,7 @@ function ns:Record(name)
 		-- where you stand to mine beats a hovered estimate
 		spot.map, spot.x, spot.y, spot.posN, spot.seenN = mapID, x, y, 1, nil
 		spot.wx, spot.wy, spot.inst = wx, wy, inst
-	elseif newVisit and spot.map == mapID then
+	elseif newVisit and spot.map == mapID and not spot.fixErr then
 		-- average the position over the first few visits: you never stand in the same place twice
 		local n = (spot.posN or 1) + 1
 		if n <= 6 then
@@ -274,6 +310,8 @@ function ns:Record(name)
 	if spot.map == mapID and (newVisit or not spot.wx) then
 		spot.wx, spot.wy, spot.inst = self:MapToWorld(mapID, spot.x, spot.y)
 	end
+	-- a rough hover of this vein saved as its own "seen" spot is this one
+	Absorb(spot, MERGE_YARDS)
 	self:Changed()
 end
 
@@ -300,7 +338,7 @@ end
 
 -- Fold every never-mined spot sharing an ore with `spot` within `reach` into
 -- it. Returns true if any went.
-local function Absorb(spot, reach)
+function Absorb(spot, reach)
 	if not spot.wx then return end
 	local gone
 	for _, t in ipairs(ns.db.spots) do
@@ -320,11 +358,12 @@ local function Absorb(spot, reach)
 end
 
 -- A Find Minerals dot for `name` was hovered around this position, which is
--- only accurate to `slop` yards (the dot's tooltip shows anywhere near it).
+-- only accurate to `slop` yards (the dot's tooltip shows anywhere near it);
+-- `err` is set when the hover crossed the dot, so its centre is reliable.
 -- Marks the spot there as up, or saves a new "seen" spot. Never-mined spots
 -- of the same ore within reach are one vein: they average together.
 -- Seeing a vein is not a visit.
-function ns:RecordSeen(name, wx, wy, inst, mapID, x, y, slop)
+function ns:RecordSeen(name, wx, wy, inst, mapID, x, y, slop, err)
 	if self.db.ignore[name] then return end
 	local now = time()
 	-- two hovers can each be `slop` off, in opposite directions; zoomed in,
@@ -340,11 +379,30 @@ function ns:RecordSeen(name, wx, wy, inst, mapID, x, y, slop)
 		Absorb(self.db.spots[#self.db.spots], reach)
 		return self:Changed()
 	end
+	local moved
+	-- a mined spot is where you stood; a precise hover (zoomed in) shows
+	-- where the vein is: move the spot toward it, weighted by accuracy
+	if spot.last and err and spot.map == mapID then
+		local cur = spot.fixErr or STAND_YARDS / sqrt(spot.posN or 1)
+		if err < cur then
+			local a, b = 1 / (cur * cur), 1 / (err * err)
+			spot.x = (spot.x * a + x * b) / (a + b)
+			spot.y = (spot.y * a + y * b) / (a + b)
+			spot.fixErr = max(1, 1 / sqrt(a + b))
+			spot.wx, spot.wy, spot.inst = self:MapToWorld(mapID, spot.x, spot.y)
+			moved = true
+			if self.hoverDebug then
+				self:Print("  hover %.0f yd from the mined spot: moved it toward the vein (now within ~%.0f yd)", d, spot.fixErr)
+			end
+		end
+	end
 	-- right after mining, the dot can linger a moment: that isn't "up"
-	if spot.last and now - spot.last < MULTITAP_SEC then return end
+	if spot.last and now - spot.last < MULTITAP_SEC then
+		if moved then self:Changed() end
+		return
+	end
 	local wasUp = SeenUp(spot)
 	spot.seenAt = now
-	local moved
 	if not spot.last and spot.map == mapID then
 		local n = min((spot.seenN or 1) + 1, 20)
 		spot.seenN = n
@@ -422,10 +480,10 @@ end
 ---------------------------------------------------------------------------
 local MINING
 local LOOT_WAIT = 3 -- seconds to wait for the loot window after a cast
-local cast  -- the cast in progress: { guid, shown = name aimed at, softID }
+local cast  -- the cast in progress: { guid, shown = name aimed at, softID, node = soft target GUID }
 local mined -- a successful cast waiting for its loot window
 
-local function Finish(id)
+local function Finish(id, node)
 	local m = mined
 	mined = nil
 	if not m then return end
@@ -436,7 +494,7 @@ local function Finish(id)
 	else
 		name = ns:NodeName(m.shown) or m.shown -- a node VeinKeeper doesn't know is kept by name
 	end
-	if name then ns:Record(name) end
+	if name then ns:Record(name, node or m.node) end
 	C_Timer.After(1, FullScan) -- the skill may have gone up
 end
 
@@ -450,10 +508,11 @@ ns:On("UNIT_SPELLCAST_SENT", function(_, target, castGUID, spellID)
 		local t = GameTooltipTextLeft1:GetText()
 		shown = ns:NodeName(t) and t or nil
 	end
-	local softID = UnitGUID and ns:ObjectID(UnitGUID("softinteract"))
+	local soft = UnitGUID and UnitGUID("softinteract")
+	local softID = ns:ObjectID(soft)
 	if softID and not ns.OBJECTS[softID] then softID = nil end
 	if shown or softID then
-		cast = { guid = castGUID, shown = shown, softID = softID }
+		cast = { guid = castGUID, shown = shown, softID = softID, node = softID and soft or nil }
 	end
 end, "player")
 
@@ -470,8 +529,9 @@ end, "player")
 ns:On("LOOT_READY", function()
 	if not (mined and GetLootSourceInfo) then return end
 	for i = 1, GetNumLootItems() do
-		local id = ns:ObjectID((GetLootSourceInfo(i)))
-		if id and ns.OBJECTS[id] then return Finish(id) end
+		local source = GetLootSourceInfo(i)
+		local id = ns:ObjectID(source)
+		if id and ns.OBJECTS[id] then return Finish(id, source) end
 	end
 end)
 
