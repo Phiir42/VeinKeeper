@@ -51,6 +51,7 @@ local function Near()
 	end
 	if #list == 0 then return ns:Print("no saved spots nearby.") end
 	table.sort(list, function(a, b) return a.d < b.d end)
+	ns:Print("closest spots:")
 	for i = 1, min(5, #list) do
 		local s = list[i].spot
 		local state
