@@ -8,7 +8,7 @@
 ## 1.2.1
 
 **Fixed**
-- Installing and updating through WowUp: releases are now marked for WoW Forever (release.json flavor "forever", zip named "-forever"), so WowUp finds them for a Forever installation.
+- Installing and updating through WowUp on a WoW Forever installation.
 
 ## 1.2.0
 

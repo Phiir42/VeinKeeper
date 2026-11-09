@@ -3,14 +3,14 @@
 Zip entries use forward slashes (PowerShell 5.1's Compress-Archive writes
 backslashes, which break extraction on macOS and in some addon managers).
 
-    python build.py                   # VeinKeeper.zip
-    python build.py --install         # also copy the addon into the WoW Forever AddOns folder
-    python build.py --release 1.1.0   # dist/: VeinKeeper-1.1.0.zip, release.json, notes.md
+    python tools/build.py                   # VeinKeeper.zip
+    python tools/build.py --install         # also copy the addon into the WoW Forever AddOns folder
+    python tools/build.py --release 1.1.0   # dist/: VeinKeeper-1.1.0.zip, release.json, notes.md
                                       # (fails unless the .toc says ## Version: 1.1.0)
 """
 import json, os, re, shutil, sys, zipfile
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ADDON = os.path.join(ROOT, "VeinKeeper")
 TOC = os.path.join(ADDON, "VeinKeeper.toc")
 ADDONS_DIR = r"C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns"

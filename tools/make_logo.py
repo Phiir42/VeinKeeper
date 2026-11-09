@@ -1,7 +1,7 @@
-"""Builds the VeinKeeper logo files from art/logo-source.png (the icon art:
+"""Builds the VeinKeeper logo files from tools/logo-source.png (the icon art:
 square, on a flat dark background).
 
-    python make_logo.py   # needs Pillow; writes
+    python tools/make_logo.py   # needs Pillow; writes
       .github/icon.png             256 px, for the README
       .github/social-preview.png   1280x640, upload under the repo's Settings >
                                    General > Social preview (the WowUp Hub uses it)
@@ -10,7 +10,7 @@ square, on a flat dark background).
 import os
 from PIL import Image, ImageChops
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MARGIN = 0.84  # the art fills this much of each square, the rest is background
 
 
@@ -40,7 +40,7 @@ def square(src, bg, size):
 
 
 def main():
-    src = Image.open(os.path.join(ROOT, "art", "logo-source.png")).convert("RGB")
+    src = Image.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo-source.png")).convert("RGB")
     bg = background(src)
     src = flatten(src, bg)
 
