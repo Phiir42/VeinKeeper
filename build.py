@@ -49,16 +49,17 @@ def release(version):
     dist = os.path.join(ROOT, "dist")
     shutil.rmtree(dist, ignore_errors=True)
     os.makedirs(dist)
-    name = f"VeinKeeper-{version}.zip"
+    # WowUp picks a GitHub release's zip for a WoW Forever installation by
+    # release.json flavor "forever", or failing that by a name ending in
+    # "-forever.zip" (checked against WowUp-CF's own code), so do both
+    name = f"VeinKeeper-{version}-forever.zip"
     build_zip(os.path.join(dist, name))
-    # release.json is the manifest addon managers (WowUp and others) read
-    # from a GitHub release to pick the right zip for a game flavor
     manifest = {"releases": [{
         "name": "VeinKeeper",
         "version": version,
         "filename": name,
         "nolib": False,
-        "metadata": [{"flavor": "classic", "interface": int(toc_field("Interface"))}],
+        "metadata": [{"flavor": "forever", "interface": int(toc_field("Interface"))}],
     }]}
     with open(os.path.join(dist, "release.json"), "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)

@@ -67,4 +67,4 @@ git tag v1.1.0
 git push origin main v1.1.0
 ```
 
-The workflow builds `VeinKeeper-<version>.zip` and `release.json` and publishes them as a GitHub release, with that version's changelog section as the notes. It fails if the tag doesn't match the `.toc` version. Addon managers that install from GitHub (WowUp's "Install from URL") use the release's `release.json` to find the zip.
+The workflow builds `VeinKeeper-<version>-forever.zip` and `release.json` (flavor `forever`) and publishes them as a GitHub release, with that version's changelog section as the notes. It fails if the tag doesn't match the `.toc` version. WowUp ("Install from URL" with the repo URL, on a WoW Forever installation) finds the zip through `release.json`'s `forever` flavor, or the `-forever.zip` name.
