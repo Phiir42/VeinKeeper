@@ -274,8 +274,8 @@ local function ReadTooltip(lines)
 	for i = 1, lines do
 		-- several dots under the cursor are listed one per line, sometimes in one string
 		for line in (_G["GameTooltipTextLeft" .. i]:GetText() or ""):gmatch("[^\n]+") do
-			local name = CleanLine(line)
-			if ns.NODES[name] then
+			local name = ns:NodeName(CleanLine(line))
+			if name then
 				names = names or {}
 				names[#names + 1] = name
 			end

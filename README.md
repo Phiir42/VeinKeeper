@@ -5,7 +5,7 @@ A lightweight World of Warcraft: Forever addon (1.60.1, interface 16001) that re
 ## Features
 
 **Recording**
-- Saves a spot when you finish mining a node. Shared spawn points (Tin/Silver, Mithril/Truesilver) merge into one spot, re-hitting a multi-tap vein counts as one visit, and the position is averaged over your first visits.
+- Saves a spot when you finish mining a node. The node is identified by its object ID from the loot window, so it works in any client language. Shared spawn points (Tin/Silver, Mithril/Truesilver) merge into one spot, re-hitting a multi-tap vein counts as one visit, and the position is averaged over your first visits.
 - With Find Minerals on, hovering a vein's yellow dot on the minimap saves it too, placed from the cursor position (a few yards' accuracy). It gets a blue ring until you mine it. Hovering a known spot's dot marks it as up.
 
 **Pins**

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0
+
+**Changed**
+- Mined veins are identified by their object ID (read from the loot window, or from the soft interact target when the game's SoftTargetInteract setting is on), so mining records correctly in every client language. The node's name is still the fallback.
+- On non-English clients, the local name of each vein you mine is learned, so minimap hover recording recognizes it from then on.
+
 ## 1.1.0
 
 **New**

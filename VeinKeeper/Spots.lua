@@ -413,34 +413,70 @@ function ns:RemoveSpots(drop)
 end
 
 ---------------------------------------------------------------------------
--- Mining detection: a successful cast of Mining on a named node.
+-- Mining detection. A successful Mining cast is recorded once its node is
+-- known, best source first: the object ID in the loot window's source GUID,
+-- the soft interact target's object ID at the cast (when the game's
+-- SoftTargetInteract setting is on), then the name the cast was aimed at.
+-- Object IDs work in every client language; the cast's name for that node
+-- is learned, so minimap hovers can read it too.
 ---------------------------------------------------------------------------
 local MINING
-local pendingCast, pendingTarget
+local LOOT_WAIT = 3 -- seconds to wait for the loot window after a cast
+local cast  -- the cast in progress: { guid, shown = name aimed at, softID }
+local mined -- a successful cast waiting for its loot window
+
+local function Finish(id)
+	local m = mined
+	mined = nil
+	if not m then return end
+	local name = ns.OBJECTS[id or m.softID]
+	if name then
+		local shown = m.shown
+		if shown and shown ~= name and not ns.NODES[shown] then ns.db.names[shown] = name end
+	else
+		name = ns:NodeName(m.shown) or m.shown -- a node VeinKeeper doesn't know is kept by name
+	end
+	if name then ns:Record(name) end
+	C_Timer.After(1, FullScan) -- the skill may have gone up
+end
 
 ns:On("PLAYER_LOGIN", function() MINING = ns:SpellName(2575) or "Mining" end)
 
 ns:On("UNIT_SPELLCAST_SENT", function(_, target, castGUID, spellID)
 	if not spellID or ns:SpellName(spellID) ~= MINING then return end
-	if not target or target == "" then
-		-- fallback: the node under the cursor, but only a known node name
-		local t = GameTooltip:IsShown() and GameTooltipTextLeft1:GetText()
-		target = t and ns.NODES[t] and t or nil
+	local shown = target ~= "" and target or nil
+	if not shown and GameTooltip:IsShown() then
+		-- the node under the cursor, but only a name known to be a node
+		local t = GameTooltipTextLeft1:GetText()
+		shown = ns:NodeName(t) and t or nil
 	end
-	if target then pendingCast, pendingTarget = castGUID, target end
+	local softID = UnitGUID and ns:ObjectID(UnitGUID("softinteract"))
+	if softID and not ns.OBJECTS[softID] then softID = nil end
+	if shown or softID then
+		cast = { guid = castGUID, shown = shown, softID = softID }
+	end
 end, "player")
 
 ns:On("UNIT_SPELLCAST_SUCCEEDED", function(_, castGUID)
-	if pendingCast and castGUID == pendingCast then
-		local target = pendingTarget
-		pendingCast, pendingTarget = nil, nil
-		ns:Record(target)
-		C_Timer.After(1, FullScan) -- the skill may have gone up
-	end
+	if not (cast and castGUID == cast.guid) then return end
+	if mined then Finish() end -- a previous cast whose loot never came
+	local m = cast
+	mined, cast = m, nil
+	C_Timer.After(LOOT_WAIT, function()
+		if mined == m then Finish() end
+	end)
 end, "player")
 
+ns:On("LOOT_READY", function()
+	if not (mined and GetLootSourceInfo) then return end
+	for i = 1, GetNumLootItems() do
+		local id = ns:ObjectID((GetLootSourceInfo(i)))
+		if id and ns.OBJECTS[id] then return Finish(id) end
+	end
+end)
+
 local function CastEnded(_, castGUID)
-	if castGUID == pendingCast then pendingCast, pendingTarget = nil, nil end
+	if cast and castGUID == cast.guid then cast = nil end
 end
 ns:On("UNIT_SPELLCAST_FAILED", CastEnded, "player")
 ns:On("UNIT_SPELLCAST_INTERRUPTED", CastEnded, "player")
