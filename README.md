@@ -48,6 +48,7 @@ Open settings with `/vk`, the minimap button, the world map button (top right) o
 | `/vk inrange ring \| hide \| icon` | How spots in view look with Find Minerals on |
 | `/vk prune [days]` | Delete single-visit spots older than 30 days |
 | `/vk clear zone \| seen \| all` | Delete spots |
+| `/vk cpu` | Measure VeinKeeper's CPU use for 30 seconds |
 | `/vk help` | List all commands |
 
 See the [changelog](CHANGELOG.md) for what's new.

@@ -34,6 +34,7 @@ local function Help()
 		"/vk inrange ring | hide | icon  spots in view with Find Minerals on",
 		"/vk prune [days]  delete single-visit spots older than [30] days",
 		"/vk clear zone | seen | all  delete spots (seen = only seen on the minimap, never mined)",
+		"/vk cpu  measure VeinKeeper's CPU use for 30 seconds",
 	}) do
 		print("  " .. line)
 	end
@@ -144,6 +145,8 @@ SlashCmdList.VEINKEEPER = function(msg)
 		ns:Changed()
 	elseif cmd == "debug" then
 		ns:ToggleHoverDebug()
+	elseif cmd == "cpu" then
+		ns:MeasureCPU()
 	elseif cmd == "next" then
 		ns:Next()
 	elseif cmd == "near" then

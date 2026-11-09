@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased
+## 1.2.2
+
+**Performance**
+- Much lower CPU use: checking the minimap's indoor / outdoor zoom no longer changes the zoom, which could make the check repeat every frame. The minimap now updates on a 10-per-second timer instead of checking every frame.
+
+**New**
+- `/vk cpu`: measures VeinKeeper's CPU use for 30 seconds.
 
 **Changed**
 - VeinKeeper has its own icon in the addon list and the addon compartment.

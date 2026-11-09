@@ -44,8 +44,50 @@ BINDING_NAME_VEINKEEPER_SETTINGS = "Open settings"
 local handlers = {}
 local frame = CreateFrame("Frame")
 frame:SetScript("OnEvent", function(_, event, ...)
+	if ns.cpu then return ns:Timed(event, handlers[event], ...) end
 	for _, fn in ipairs(handlers[event]) do fn(...) end
 end)
+
+---------------------------------------------------------------------------
+-- /vk cpu: time every event handler and the minimap tick for 30 seconds.
+-- Costs nothing while off (one nil check per event).
+---------------------------------------------------------------------------
+function ns:Timed(key, list, ...)
+	local t = debugprofilestop()
+	if type(list) == "function" then list(...) else for _, fn in ipairs(list) do fn(...) end end
+	local e = self.cpu[key]
+	if not e then e = { 0, 0 }; self.cpu[key] = e end
+	e[1], e[2] = e[1] + debugprofilestop() - t, e[2] + 1
+end
+
+function ns:MeasureCPU()
+	if self.cpu then return self:Print("already measuring.") end
+	local P = C_AddOnProfiler
+	local metric = Enum and Enum.AddOnProfilerMetric
+	-- the game's own figure for the last few seconds (its session average
+	-- includes everything since login, also before a /reload)
+	local function Game()
+		if not (P and metric and P.GetAddOnMetric) then return end
+		local ok, v = pcall(P.GetAddOnMetric, ADDON, metric.RecentAverageTime)
+		return ok and v or nil
+	end
+	self.cpu = {}
+	self:Print("measuring CPU for 30 s; play normally (move around, mine).")
+	C_Timer.After(30, function()
+		local cpu = self.cpu
+		self.cpu = nil
+		local rows, total = {}, 0
+		for k, e in pairs(cpu) do rows[#rows + 1] = { k, e[1], e[2] }; total = total + e[1] end
+		table.sort(rows, function(a, b) return a[2] > b[2] end)
+		self:Print("%.2f ms per second in VeinKeeper's own code:", total / 30)
+		for i = 1, math.min(8, #rows) do
+			local r = rows[i]
+			print(("  %-28s %7.3f ms/s  %5d calls  %.3f ms each"):format(r[1], r[2] / 30, r[3], r[2] / r[3]))
+		end
+		local recent = Game()
+		if recent then print(("  game profiler, recent average: %.4f ms"):format(recent)) end
+	end)
+end
 
 function ns:On(event, fn, unit)
 	local list = handlers[event]
@@ -106,7 +148,9 @@ end)
 
 -- freshness rings change colour over time
 ns:On("PLAYER_LOGIN", function()
-	C_Timer.NewTicker(15, function() ns:Restyle() end)
+	C_Timer.NewTicker(15, function()
+		if ns.cpu then ns:Timed("restyle (every 15 s)", ns.Restyle, ns) else ns:Restyle() end
+	end)
 end)
 
 ---------------------------------------------------------------------------

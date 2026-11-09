@@ -1,8 +1,8 @@
 -- Minimap pins: saved spots in view, the nearest far spots on the rim, and
 -- saving veins whose Find Minerals dot you hover.
 --
--- Cost: a 10 Hz tick that returns at once unless you moved, turned (rotating
--- minimap), zoomed or something changed. Saved spots are only searched again
+-- Cost: a 10 Hz timer (no per-frame OnUpdate) that returns at once unless
+-- you moved, turned (rotating minimap), zoomed or something changed. Saved spots are only searched again
 -- after moving RESCAN_YARDS or a data change; pins are only restyled when
 -- their spot or the style version changes.
 local _, ns = ...
@@ -30,19 +30,18 @@ local indoors, tracking = false, false
 ---------------------------------------------------------------------------
 -- Minimap state
 ---------------------------------------------------------------------------
--- IsIndoors() can disagree with the minimap right after a zone change, so
--- compare the zoom CVars instead (as HereBeDragons-Pins does).
-local checkingZoom = false
+-- The minimap keeps separate outdoor and indoor zoom levels; whichever one it
+-- shows tells which scale it uses. IsIndoors() can lag behind the minimap
+-- after a zone change, so it's only the fallback for when both are equal.
+-- (No probing with Minimap:SetZoom: that fires MINIMAP_UPDATE_ZOOM again.)
 local function UpdateIndoors()
-	if checkingZoom then return end
-	checkingZoom = true
 	local zoom = Minimap:GetZoom()
-	if GetCVar("minimapZoom") == GetCVar("minimapInsideZoom") then
-		Minimap:SetZoom(zoom < 2 and zoom + 1 or zoom - 1)
+	local out, inside = tonumber(GetCVar("minimapZoom")), tonumber(GetCVar("minimapInsideZoom"))
+	if out ~= inside then
+		indoors = zoom == inside
+	else
+		indoors = IsIndoors() and true or false
 	end
-	indoors = tonumber(GetCVar("minimapZoom")) ~= Minimap:GetZoom()
-	Minimap:SetZoom(zoom)
-	checkingZoom = false
 	viewStale = true
 end
 
@@ -335,21 +334,27 @@ end
 ---------------------------------------------------------------------------
 -- Driver: the tick only runs while minimap pins or hover recording are on.
 ---------------------------------------------------------------------------
-local ticker = CreateFrame("Frame")
-ticker:Hide()
-local elapsed = 0
-ticker:SetScript("OnUpdate", function(_, dt)
-	elapsed = elapsed + dt
-	if elapsed < TICK then return end
-	elapsed = 0
-	local s = ns.db.settings
-	if debug or (tracking and s.recordSeen) then CheckHover() end
-	if s.minimapPins then Update() end
-end)
+local ticker
+
+local function Tick()
+	local s, cpu = ns.db.settings, ns.cpu
+	if debug or (tracking and s.recordSeen) then
+		if cpu then ns:Timed("minimap: hover", CheckHover) else CheckHover() end
+	end
+	if s.minimapPins then
+		if cpu then ns:Timed("minimap: pins", Update) else Update() end
+	end
+end
 
 local function UpdateActive()
 	local s = ns.db.settings
-	ticker:SetShown(s.minimapPins or debug or (tracking and s.recordSeen))
+	local want = s.minimapPins or debug or (tracking and s.recordSeen)
+	if want and not ticker then
+		ticker = C_Timer.NewTicker(TICK, Tick)
+	elseif not want and ticker then
+		ticker:Cancel()
+		ticker = nil
+	end
 	if not s.minimapPins then HidePins(1) end
 	viewStale = true
 end
@@ -382,6 +387,7 @@ ns:On("PLAYER_ENTERING_WORLD", function()
 	UpdateTracking()
 end)
 ns:On("MINIMAP_UPDATE_ZOOM", UpdateIndoors)
+ns:On("ZONE_CHANGED_INDOORS", UpdateIndoors)
 ns:On("MINIMAP_UPDATE_TRACKING", UpdateTracking)
 ns:On("VK_DATA", function()
 	scanStale = true
