@@ -31,7 +31,7 @@ end
 
 -- Collapsed headers hide their skills. Expanding them (and collapsing them
 -- again) is only done on the occasions Mining can appear or rise: login,
--- learning a spell, and after mining. Every other SKILL_LINES_CHANGED (weapon
+-- spellbook changes, and after mining. Every other SKILL_LINES_CHANGED (weapon
 -- skill-ups fire it constantly) only reads the visible lines.
 local function ScanSkill(expand)
 	if not GetNumSkillLines then return end
@@ -58,7 +58,7 @@ local function ScanSkill(expand)
 end
 local function FullScan() ScanSkill(true) end
 ns:On("PLAYER_LOGIN", FullScan)
-ns:On("LEARNED_SPELL_IN_TAB", FullScan)
+ns:On("SPELLS_CHANGED", FullScan) -- learning Mining (not a combat event)
 ns:On("SKILL_LINES_CHANGED", function() ScanSkill(false) end)
 
 function ns:SkillRank() return skillRank end

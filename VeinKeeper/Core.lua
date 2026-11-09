@@ -52,8 +52,14 @@ function ns:On(event, fn, unit)
 	if not list then
 		list = {}
 		handlers[event] = list
+		-- pcall: registering an event this client doesn't have throws, which
+		-- would abort loading the rest of the calling file
 		if event:sub(1, 3) ~= "VK_" then
-			if unit then frame:RegisterUnitEvent(event, unit) else frame:RegisterEvent(event) end
+			if unit then
+				pcall(frame.RegisterUnitEvent, frame, event, unit)
+			else
+				pcall(frame.RegisterEvent, frame, event)
+			end
 		end
 	end
 	list[#list + 1] = fn
