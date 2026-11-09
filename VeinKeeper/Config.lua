@@ -121,10 +121,11 @@ local function pct(v) return v .. "%" end
 local function toAlpha(v) return v / 100 end
 local function fromAlpha(a) return floor((a or 1) * 100 + 0.5) end
 local function same(v) return v end
+local function px(v) return v .. " px" end
 
 local function CreatePanel()
 	panel = CreateFrame("Frame", "VeinKeeperSettings", UIParent, "BasicFrameTemplateWithInset")
-	panel:SetSize(330, 520)
+	panel:SetSize(330, 604)
 	panel:SetPoint("CENTER")
 	panel:SetFrameStrata("DIALOG")
 	panel:SetToplevel(true)
@@ -156,12 +157,14 @@ local function CreatePanel()
 	y = y - 136
 	Slider(panel, "World map pin opacity", "worldAlpha", y, 10, 100, 5, pct, toAlpha, fromAlpha, restyle)
 	Slider(panel, "Minimap pin opacity", "minimapAlpha", y - 42, 10, 100, 5, pct, toAlpha, fromAlpha)
-	Slider(panel, "Respawn timer (ring turns green after)", "readyMin", y - 84, 1, 60, 1,
+	Slider(panel, "World map icon size", "worldSize", y - 84, 8, 32, 1, px, same, same, restyle)
+	Slider(panel, "Minimap icon size", "minimapSize", y - 126, 8, 24, 1, px, same, same)
+	Slider(panel, "Respawn timer (ring turns green after)", "readyMin", y - 168, 1, 60, 1,
 		function(v) return v .. " min" end, same, same, restyle)
-	Slider(panel, "Far spots shown on the minimap edge", "edgeCount", y - 126, 0, 10, 1,
+	Slider(panel, "Far spots shown on the minimap edge", "edgeCount", y - 210, 0, 10, 1,
 		tostring, same, same)
 
-	y = y - 170
+	y = y - 254
 	InRangeButton(panel, y)
 
 	y = y - 34

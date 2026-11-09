@@ -10,7 +10,7 @@ A lightweight World of Warcraft: Forever (1.60.1, interface 16001) addon that re
 - Shared spawn points (e.g. Tin/Silver) merge into one pin; repeated hits on a multi-tap vein count as one visit; a spot's position is averaged over your first visits.
 - Spots above your Mining skill are dimmed.
 
-- Settings window (`/vk`, the minimap button, or the button in the top-right of the world map): world map and minimap pin opacity, respawn timer, edge pins, Find Minerals mode, icon style, and the buttons themselves.
+- Settings window (`/vk`, the minimap button, or the button in the top-right of the world map): world map and minimap pin opacity and icon size, respawn timer, edge pins, Find Minerals mode, icon style, and the buttons themselves.
 - Shows up in the addon compartment (the minimap's addon list, which EllesmereUI keeps): left-click opens settings, right-click shows/hides pins. The minimap button is also a named minimap button, so button collectors can take it; once collected, VeinKeeper stops positioning it.
 
 Type `/vk help` in game for the slash commands.

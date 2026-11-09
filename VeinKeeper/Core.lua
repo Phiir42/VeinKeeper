@@ -18,6 +18,8 @@ local DEFAULTS = {
 	mapButton = true,   -- settings button on the world map
 	worldAlpha = 1,     -- world map pin opacity (0.1 - 1)
 	minimapAlpha = 1,   -- minimap pin opacity (0.1 - 1)
+	worldSize = 18,     -- world map icon size in pixels (before map zoom scaling)
+	minimapSize = 14,   -- minimap icon size in pixels
 }
 
 ---------------------------------------------------------------------------

@@ -25,6 +25,7 @@ function ns:StylePin(pin, spot, ringOnly)
 	pin.icon:SetDesaturated(not ok)
 	local s = self.db.settings
 	local opacity = pin.isMinimap and s.minimapAlpha or s.worldAlpha
+	if not pin.isMinimap then pin:SetSize(s.worldSize, s.worldSize) end -- minimap sizes are set in Place
 	pin:SetAlpha(opacity * (ok and 1 or 0.55))
 end
 

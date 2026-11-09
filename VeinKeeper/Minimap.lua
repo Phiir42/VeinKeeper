@@ -85,7 +85,9 @@ end
 
 local function Place(p, spot, x, y, label, ringOnly)
 	ns:StylePin(p, spot, ringOnly)
-	p:SetSize(ringOnly and 18 or 14, ringOnly and 18 or 14)
+	-- a hollow ring is drawn a little larger so the tracking dot fits inside it
+	local size = ns.db.settings.minimapSize + (ringOnly and 4 or 0)
+	p:SetSize(size, size)
 	p:ClearAllPoints()
 	p:SetPoint("CENTER", Minimap, "CENTER", x, y)
 	p.text:SetText(label or "")
