@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.5
 
 **New**
 - Respawn times are learned per ore from your own play: mining a vein again, or first seeing its dot after mining, shows it was back by then. The estimate (the lower quartile of the last 24) replaces the respawn setting once an ore has 3 samples. Tooltips show it, and `/vk respawn` lists them.

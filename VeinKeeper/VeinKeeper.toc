@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: VeinKeeper
 ## Notes: Remembers every ore vein you mine and shows it on your world map and minimap, with respawn timers.
-## Version: 1.2.4
+## Version: 1.2.5
 ## SavedVariables: VeinKeeperDB
 ## IconTexture: Interface\AddOns\VeinKeeper\Icons\logo
 ## AddonCompartmentFunc: VeinKeeper_OnCompartmentClick
