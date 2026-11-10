@@ -134,6 +134,7 @@ ns:On("ADDON_LOADED", function(name)
 	db.spots = db.spots or {}
 	db.ignore = db.ignore or {}
 	db.names = db.names or {} -- node names in the client's language -> English (learned when mining)
+	db.respawn = db.respawn or {} -- ore -> recent respawn upper bounds in seconds (see Spots.lua)
 	db.settings = db.settings or {}
 	for k in pairs(db.settings) do
 		if ns.DEFAULTS[k] == nil then db.settings[k] = nil end -- drop retired settings

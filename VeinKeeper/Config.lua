@@ -226,7 +226,7 @@ local function CreatePanel()
 
 	-- right: respawns and the minimap
 	Header(RIGHT, -36, "Respawns & minimap")
-	Slider(RIGHT, -60, "Likely back after", "readyMin", 1, 60, 1, " min")
+	Slider(RIGHT, -60, "Respawn until learned", "readyMin", 1, 60, 1, " min")
 	Slider(RIGHT, -102, "Far spots on the minimap rim", "edgeCount", 0, 10, 1, "")
 	Slider(RIGHT, -144, "Rim: hide spots further than", "edgeMaxYards", 100, 2500, 50, " yd")
 	Check(RIGHT, -186, "Rim: only spots likely back", "edgeReadyOnly")

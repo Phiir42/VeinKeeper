@@ -124,13 +124,17 @@ local function Place(i, spot, x, y, ringOnly, dist)
 		p:EnableMouse(not ringOnly)
 		p.styled, p.ringOnly, p.rimPin = ns.version, ringOnly, rimPin
 	end
-	p:SetPoint("CENTER", Minimap, "CENTER", x, y)
+	-- re-anchoring costs a layout pass: skip moves of under a pixel
+	if not p.px or abs(x - p.px) >= 1 or abs(y - p.py) >= 1 then
+		p:SetPoint("CENTER", Minimap, "CENTER", x, y)
+		p.px, p.py = x, y
+	end
 	local yd = dist and floor(dist)
 	if p.yd ~= yd then
 		p.label:SetText(yd and yd .. " yd" or "")
 		p.yd = yd
 	end
-	p:Show()
+	if not p:IsShown() then p:Show() end
 end
 
 local function HidePins(from)
@@ -460,8 +464,16 @@ end
 ---------------------------------------------------------------------------
 local ticker
 
+-- On a flight path pins sweep past too fast to use: update at a third the rate.
+local TAXI_EVERY = 3
+local taxiSkip = 0
+
 local function Tick()
 	local s, cpu = ns.db.settings, ns.cpu
+	if UnitOnTaxi("player") then
+		taxiSkip = (taxiSkip + 1) % TAXI_EVERY
+		if taxiSkip ~= 0 then return end
+	end
 	if debug or tracking then
 		if cpu then ns:Timed("minimap: hover", CheckHover) else CheckHover() end
 	end

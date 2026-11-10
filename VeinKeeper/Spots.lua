@@ -173,11 +173,59 @@ local function SeenUp(spot)
 end
 function ns:SeenUp(spot) return SeenUp(spot) end
 
+-- Learned respawn times. Nothing tells an addon when a vein respawns, but
+-- two things show it was back by some time after it was mined: mining it
+-- again, and first seeing its dot on the minimap. Each is an upper bound;
+-- the last RESPAWN_KEEP per ore are kept (VeinKeeperDB.respawn[ore]), and
+-- the estimate is their lower quartile: near the true time, not the
+-- occasional hours-later return. Until RESPAWN_MIN_N are in, the
+-- "Likely back after" setting is used.
+local RESPAWN_KEEP, RESPAWN_MIN_N = 24, 3
+local RESPAWN_MAX_SEC = 6 * 3600 -- longer gaps say nothing useful
+local respawnCache = {} -- ore -> seconds or false, cleared on each new sample
+
+local function Learn(ore, sec)
+	if sec <= MULTITAP_SEC or sec > RESPAWN_MAX_SEC then return end
+	local list = ns.db.respawn[ore]
+	if not list then
+		list = {}
+		ns.db.respawn[ore] = list
+	end
+	list[#list + 1] = floor(sec)
+	if #list > RESPAWN_KEEP then table.remove(list, 1) end
+	respawnCache[ore] = nil
+end
+
+-- Seconds a vein of this ore takes to respawn, and how many samples back it
+-- (0: the setting).
+function ns:Respawn(ore)
+	local est = respawnCache[ore]
+	local list = self.db.respawn[ore]
+	if est == nil then
+		est = false
+		if list and #list >= RESPAWN_MIN_N then
+			local sorted = {}
+			for i, v in ipairs(list) do sorted[i] = v end
+			table.sort(sorted)
+			est = sorted[max(1, floor(#sorted / 4 + 0.5))]
+		end
+		respawnCache[ore] = est
+	end
+	if est then return est, #list end
+	return self.db.settings.readyMin * 60, 0
+end
+
+-- This spot's respawn: its ore's, or sooner if it has come back faster.
+local function SpotRespawn(spot)
+	local sec = ns:Respawn(spot.lastOre)
+	return spot.minGap and min(sec, spot.minGap) or sec
+end
+
 -- Seconds until the spot is likely back (<= 0: likely up now). A vein seen
 -- on the minimap since it was last mined counts as up.
 function ns:Wait(spot)
 	if SeenUp(spot) then return 0 end
-	return self.db.settings.readyMin * 60 - (time() - spot.last)
+	return SpotRespawn(spot) - (time() - spot.last)
 end
 
 -- r, g, b, ready. Red right after mining, fading to yellow, then green;
@@ -188,7 +236,7 @@ function ns:Freshness(spot)
 		if not spot.last then return 0.35, 0.7, 1, true end
 		return 0.2, 1, 0.2, true
 	end
-	local t = 1 - wait / (self.db.settings.readyMin * 60)
+	local t = 1 - wait / SpotRespawn(spot)
 	return 1, 0.25 + 0.65 * t, 0.15, false
 end
 
@@ -328,7 +376,11 @@ function ns:Record(name, guid)
 	if newVisit then
 		spot.visits = spot.visits + 1
 		spot.ores[name] = (spot.ores[name] or 0) + 1
-		if spot.last then spot.minGap = spot.minGap and min(spot.minGap, gap) or gap end
+		if spot.last then
+			spot.minGap = spot.minGap and min(spot.minGap, gap) or gap
+			-- back by now, unless it was already seen up since (that counted)
+			if not SeenUp(spot) then Learn(name, gap) end
+		end
 	elseif not spot.ores[name] then
 		spot.ores[name] = 1
 	end
@@ -420,6 +472,8 @@ function ns:RecordSeen(name, wx, wy, inst, mapID, x, y, slop, err)
 		return
 	end
 	local wasUp = SeenUp(spot)
+	-- the first sighting since it was mined: it was back by now
+	if spot.last and not wasUp then Learn(name, now - spot.last) end
 	spot.seenAt = now
 	if not spot.ores[name] then
 		spot.ores[name] = 0
@@ -494,6 +548,13 @@ local function Migrate()
 			end
 		end
 		s.posN, s.fixErr, s.seenN = nil, nil, nil
+	end
+	-- respawn learning starts from the fastest return already seen per spot
+	if not ns.db.respawnSeeded then
+		ns.db.respawnSeeded = true
+		for _, s in ipairs(ns.db.spots) do
+			if s.minGap and s.lastOre then Learn(s.lastOre, s.minGap) end
+		end
 	end
 end
 
@@ -611,7 +672,6 @@ local checked = {} -- spot -> time() found empty, this session only
 function ns:Next()
 	local wx, wy, inst = self:PlayerWorld()
 	if not wx then return self:Print("no position here.") end
-	local readySec = self.db.settings.readyMin * 60
 	local now = time()
 	local best, bestD, soonest
 	for _, s in ipairs(self.db.spots) do
@@ -619,6 +679,7 @@ function ns:Next()
 			local dx, dy = s.wx - wx, s.wy - wy
 			local d = sqrt(dx * dx + dy * dy)
 			local wait = self:Wait(s)
+			local readySec = SpotRespawn(s)
 			if checked[s] then wait = max(wait, readySec - (now - checked[s])) end
 			if wait <= 0 and d < AT_SPOT_YARDS then
 				checked[s] = now

@@ -17,7 +17,7 @@ local TOGGLES = {
 
 -- /vk <word> <number> sets a number
 local NUMBERS = {
-	ready = { "readyMin", 1, 1440, "Likely back after %d min" },
+	ready = { "readyMin", 1, 1440, "Respawn until learned: %d min" },
 	edge  = { "edgeCount", 0, 10, "Far spots on the minimap rim: %d" },
 }
 
@@ -30,13 +30,30 @@ local function Help()
 		"/vk only <ore>  show one ore only (/vk only all to reset)",
 		"/vk ignore <node> | unignore <node>  stop / resume recording a node type",
 		"/vk map | minimap | icons | skill | seen | button  toggle a setting",
-		"/vk ready <minutes> | edge <0-10>  respawn timer, rim pin count",
+		"/vk ready <minutes> | edge <0-10>  respawn until learned, rim pin count",
+		"/vk respawn  learned respawn times per ore",
 		"/vk inrange ring | hide | icon  spots in view with Find Minerals on",
 		"/vk prune [days]  delete single-visit spots older than [30] days",
 		"/vk clear zone | seen | all  delete spots (seen = only seen on the minimap, never mined)",
 		"/vk cpu  measure VeinKeeper's CPU use for 30 seconds",
 	}) do
 		print("  " .. line)
+	end
+end
+
+local function Respawns()
+	local ores = {}
+	for ore in pairs(ns.db.respawn) do ores[#ores + 1] = ore end
+	if #ores == 0 then
+		return ns:Print("no respawns learned yet; using %d min. Mining a vein again or seeing its dot teaches it.",
+			ns.db.settings.readyMin)
+	end
+	table.sort(ores)
+	ns:Print("learned respawn times (until 3 samples, %d min):", ns.db.settings.readyMin)
+	for _, ore in ipairs(ores) do
+		local sec, n = ns:Respawn(ore)
+		print(("  %s: ~%s (%s)"):format(ore, ns:FormatTime(sec),
+			n > 0 and n .. " samples" or #ns.db.respawn[ore] .. " sample(s) so far, using the setting"))
 	end
 end
 
@@ -151,6 +168,8 @@ SlashCmdList.VEINKEEPER = function(msg)
 		ns:Next()
 	elseif cmd == "near" then
 		Near()
+	elseif cmd == "respawn" then
+		Respawns()
 	elseif cmd == "only" and arg ~= "" then
 		Only(arg)
 	elseif cmd == "ignore" or cmd == "unignore" then

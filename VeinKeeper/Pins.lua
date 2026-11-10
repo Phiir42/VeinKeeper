@@ -114,8 +114,13 @@ function ns:ShowTooltip(owner, spot, nearby, noClick)
 	elseif not ready then
 		tt:AddDoubleLine("Likely back in", self:FormatTime(self:Wait(spot)), 1, 1, 1, r, g, b)
 	end
+	if spot.last then
+		local sec, n = self:Respawn(spot.lastOre)
+		tt:AddDoubleLine("Respawn", "~" .. self:FormatTime(sec) .. (n > 0 and (" (learned, %d)"):format(n) or " (setting)"),
+			1, 1, 1, GREY, GREY, GREY)
+	end
 	if spot.minGap then
-		tt:AddDoubleLine("Fastest respawn seen", "<= " .. self:FormatTime(spot.minGap), 1, 1, 1, GREY, GREY, GREY)
+		tt:AddDoubleLine("Fastest here", "<= " .. self:FormatTime(spot.minGap), 1, 1, 1, GREY, GREY, GREY)
 	end
 	if spot.visits > 0 then
 		tt:AddDoubleLine("Visits / taps", spot.visits .. " / " .. spot.taps, 1, 1, 1, GREY, GREY, GREY)

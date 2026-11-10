@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+**New**
+- Respawn times are learned per ore from your own play: mining a vein again, or first seeing its dot after mining, shows it was back by then. The estimate (the lower quartile of the last 24) replaces the respawn setting once an ore has 3 samples. Tooltips show it, and `/vk respawn` lists them.
+
+**Performance**
+- Minimap pins are only moved when they'd move by a pixel or more, and update at a third of the rate on a flight path.
+
+**Changed**
+- The "Likely back after" setting is now "Respawn until learned".
+
 ## 1.2.4
 
 **Changed**
