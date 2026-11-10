@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.6
+
+**Fixed**
+- Neighbouring veins hovered on the minimap no longer merge into one spot, or merge again on login: a hover only joins a spot within the error of both positions (about 8 px on the minimap at any zoom), instead of up to 60 yd. Repeat hovers of one vein still join it.
+
 ## 1.2.5
 
 **New**
