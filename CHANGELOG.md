@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.4
 
 **Changed**
 - A spot's position keeps improving: it combines the average of where you stood on every visit with the average of your Find Minerals hovers, weighted by how much each has seen.
