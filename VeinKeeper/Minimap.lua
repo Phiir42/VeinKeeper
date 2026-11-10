@@ -15,6 +15,8 @@ local RESCAN_YARDS = 100
 local VIEW_YARDS = 300   -- more than the widest minimap radius (~233 yd)
 local RIM_INSET = 7      -- px between a rim pin's centre and the minimap edge
 local HOVER_SLOP_PX = 12 -- a dot's tooltip shows with the cursor this far away
+local HOVER_MIN_SEC = 1  -- shorter hovers are passing sweeps, not looks at a dot
+local AIM_PX = 3         -- how close a resting cursor is to the dot it's on
 local FIND_MINERALS = 2580
 -- minimap diameter in yards per zoom level (the values HereBeDragons uses)
 local OUTDOOR = { [0] = 466 + 2 / 3, 400, 333 + 1 / 3, 266 + 2 / 3, 200, 133 + 1 / 3 }
@@ -252,7 +254,7 @@ end
 -- the same tooltip is up, the world positions under the cursor are collected
 -- into a box; the box's centre is recorded when the tooltip goes away.
 -- Moving the cursor across the dot gives its centre.
-local hover -- { names, inst, mapID, b, slop, x0, x1, y0, y1, n }
+local hover -- { names, inst, mapID, b, slop, x0, x1, y0, y1, n, sx, sy, start, ... }
 local hoverNames -- node names in the current tooltip, or false
 
 local sampler -- samples the cursor every frame, only while a dot's tooltip is up
@@ -265,21 +267,23 @@ local function Flush()
 	-- wider than a dot's tooltip reaches, or the scale changed under it:
 	-- the tooltip outlived its dot, so this isn't a real hover
 	local spread = max(h.x1 - h.x0, h.y1 - h.y0)
-	if h.bad or spread > 2 * h.slop then
+	if not h.bad and GetTime() - h.start < HOVER_MIN_SEC then
+		h.bad = ("hovered %.1f s, under %d s"):format(GetTime() - h.start, HOVER_MIN_SEC)
+	end
+	if h.bad or spread > 3 * h.slop then
 		if debug then
 			ns:Print("  discarded: %s", h.bad or ("%d samples over %.0f yd, too spread out"):format(h.n, spread))
 		end
 		return
 	end
-	local wx, wy = (h.x0 + h.x1) / 2, (h.y0 + h.y1) / 2
+	-- the average of every frame's cursor position: where the cursor rested
+	-- (on the dot you're looking at) outweighs the path it came in by
+	local wx, wy = h.sx / h.n, h.sy / h.n
 	local nx, ny = ns:WorldToMap(h.b, wx, wy)
-	-- the box's centre is the dot only if the cursor crossed it; otherwise
-	-- it's anywhere within slop, too rough to correct a mined spot with
-	local crossed = spread >= 0.6 * h.slop
-	local err = crossed and h.slop * 0.4 or nil
+	local err = h.slop * AIM_PX / HOVER_SLOP_PX -- how well a cursor rests on a dot
 	if debug then
-		ns:Print("  recorded from %d samples over a %.0f x %.0f yd box%s", h.n, h.x1 - h.x0, h.y1 - h.y0,
-			crossed and "" or " (didn't cross the dot: position too rough to move a mined spot)")
+		ns:Print("  recorded from %d samples over a %.0f x %.0f yd box, good to ~%.0f yd",
+			h.n, h.x1 - h.x0, h.y1 - h.y0, err)
 	end
 	for _, name in ipairs(h.names) do ns:RecordSeen(name, wx, wy, h.inst, h.mapID, nx, ny, h.slop, err) end
 end
@@ -430,7 +434,7 @@ local function CheckHover()
 				end
 				local sx, sy, sinst = CursorWorld()
 				if not sx or sinst ~= s.inst then return end
-				s.n = s.n + 1
+				s.n, s.sx, s.sy = s.n + 1, s.sx + sx, s.sy + sy
 				s.x0, s.x1 = min(s.x0, sx), max(s.x1, sx)
 				s.y0, s.y1 = min(s.y0, sy), max(s.y1, sy)
 			end)
@@ -439,8 +443,9 @@ local function CheckHover()
 		hover = {
 			names = hoverNames, inst = inst, mapID = mapID, b = b,
 			slop = HOVER_SLOP_PX / scale, -- yards the cursor can be off the dot
-			x0 = hx, x1 = hx, y0 = hy, y1 = hy, n = 1,
+			x0 = hx, x1 = hx, y0 = hy, y1 = hy, n = 1, sx = hx, sy = hy,
 			tip = lastTip, lines = lastTipLines, zoom = Minimap:GetZoom(), indoors = indoors,
+			start = GetTime(),
 		}
 		if debug then
 			local _, yardR = Scale()

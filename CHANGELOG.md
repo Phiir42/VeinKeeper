@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+**Changed**
+- A spot's position keeps improving: it combines the average of where you stood on every visit with the average of your Find Minerals hovers, weighted by how much each has seen.
+- A hover is placed at the average cursor position while you rest on the vein's dot, not the middle of the area the cursor covered.
+- A hover must last at least a second to count, so passing sweeps no longer save spots.
+
+**Fixed**
+- A vein that respawned quickly was saved as a second spot; duplicates already saved within 6 yd merge on login.
+- Full sweeps across a dot indoors were discarded as too spread out.
+
 ## 1.2.3
 
 **New**

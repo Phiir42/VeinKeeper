@@ -9,14 +9,15 @@
 --   seenAt         time() its Find Minerals dot was last hovered
 --   visits, taps   separate visits / total mining casts
 --   minGap         shortest time between two visits: an upper bound on respawn
---   posN           how many visits are averaged into the position
---   fixErr         yards the position may be off, once Find Minerals hovers
---                  moved it onto the vein (nil: it's where you stood to mine)
+--   gx, gy, gN     the average of where you stood to mine, over gN visits
+--   hx, hy, hErr   the Find Minerals hover estimate and yards it may be off
+--                  (x, y combines the two, weighted by accuracy: see Settle)
 local _, ns = ...
 
 local MERGE_YARDS = 15   -- spots closer than this are the same spawn point
 local MULTITAP_SEC = 120 -- without node GUIDs: re-mining within this window is the same visit
-local RESPAWN_MIN = 300  -- no vein respawns faster than this
+local OTHER_NODE_SEC = 120 -- another node GUID mined here this soon is a neighbouring
+                           -- vein; later it may be this vein respawned (a new GUID)
 local AT_SPOT_YARDS = 40 -- "standing at the spot" for /vk next
 local SEEN_REACH = 60    -- most two hovers of the same vein can be apart (zoomed out)
 local ADOPT_REACH = 40   -- mining takes over a hovered spot of that ore this close
@@ -221,6 +222,45 @@ local function Closest(wx, wy, inst, mapID, x, y, name, reach, accept, skip)
 	return best, bestD
 end
 
+---------------------------------------------------------------------------
+-- Position: two running averages, each closing in on the vein.
+--  - Gathers: where you stood, every visit. You come at a vein from
+--    different sides, so the average approaches the vein as visits add up.
+--  - Hovers: the cursor resting on the vein's Find Minerals dot.
+-- The pin sits between them, weighted by how much each has seen.
+---------------------------------------------------------------------------
+local function Settle(spot)
+	local gw = spot.gN and spot.gN / (STAND_YARDS * STAND_YARDS) or 0
+	local hw = spot.hErr and 1 / (spot.hErr * spot.hErr) or 0
+	if gw + hw == 0 then return end
+	spot.x = ((spot.gx or 0) * gw + (spot.hx or 0) * hw) / (gw + hw)
+	spot.y = ((spot.gy or 0) * gw + (spot.hy or 0) * hw) / (gw + hw)
+	spot.wx, spot.wy, spot.inst = ns:MapToWorld(spot.map, spot.x, spot.y)
+end
+
+local function AddGather(spot, x, y)
+	local n = (spot.gN or 0) + 1
+	spot.gx = spot.gx and spot.gx + (x - spot.gx) / n or x
+	spot.gy = spot.gy and spot.gy + (y - spot.gy) / n or y
+	spot.gN = n
+	Settle(spot)
+end
+
+-- A hover at x, y, at most `err` yards off: averaged in, the more precise
+-- one counting for more.
+local function AddHover(spot, x, y, err)
+	err = max(1, err)
+	if spot.hErr then
+		local a, b = 1 / (spot.hErr * spot.hErr), 1 / (err * err)
+		spot.hx = (spot.hx * a + x * b) / (a + b)
+		spot.hy = (spot.hy * a + y * b) / (a + b)
+		spot.hErr = max(1, 1 / sqrt(a + b))
+	else
+		spot.hx, spot.hy, spot.hErr = x, y, err
+	end
+	Settle(spot)
+end
+
 local function NeverMined(s) return not s.last end
 
 local function NewSpot(mapID, x, y, wx, wy, inst, name, mined, now)
@@ -230,6 +270,7 @@ local function NewSpot(mapID, x, y, wx, wy, inst, name, mined, now)
 		ores = { [name] = mined and 1 or 0 }, lastOre = name, first = now,
 		last = mined and now or nil, seenAt = not mined and now or nil,
 		visits = mined and 1 or 0, taps = mined and 1 or 0,
+		gx = mined and x or nil, gy = mined and y or nil, gN = mined and 1 or nil,
 	}
 	if mined and not db.seenNote then
 		db.seenNote = true
@@ -259,10 +300,10 @@ function ns:Record(name, guid)
 	local now = time()
 	local spot = guid and FindNode(guid)
 	if not spot then
-		-- a spot whose node, mined minutes ago, had another GUID is a
+		-- a spot whose node, mined moments ago, had another GUID is a
 		-- different vein: that one can't have respawned yet
 		local function Other(s)
-			return guid and nodeAt[s] and nodeAt[s] ~= guid and now - (s.last or 0) < RESPAWN_MIN
+			return guid and nodeAt[s] and nodeAt[s] ~= guid and now - (s.last or 0) < OTHER_NODE_SEC
 		end
 		-- a spot only seen on the minimap may be off by its hover error
 		spot = Closest(wx, wy, inst, mapID, x, y, name, ADOPT_REACH, NeverMined, Other)
@@ -294,22 +335,12 @@ function ns:Record(name, guid)
 	spot.taps = spot.taps + 1
 	spot.last = now
 	spot.lastOre = name
-	if firstMine then
-		-- where you stand to mine beats a hovered estimate
-		spot.map, spot.x, spot.y, spot.posN, spot.seenN = mapID, x, y, 1, nil
-		spot.wx, spot.wy, spot.inst = wx, wy, inst
-	elseif newVisit and spot.map == mapID and not spot.fixErr then
-		-- average the position over the first few visits: you never stand in the same place twice
-		local n = (spot.posN or 1) + 1
-		if n <= 6 then
-			spot.posN = n
-			spot.x = spot.x + (x - spot.x) / n
-			spot.y = spot.y + (y - spot.y) / n
-		end
+	if firstMine and spot.map ~= mapID then
+		-- a hovered spot saved on another zone's map: start over on this one
+		spot.map, spot.hx, spot.hy, spot.hErr = mapID, nil, nil, nil
 	end
-	if spot.map == mapID and (newVisit or not spot.wx) then
-		spot.wx, spot.wy, spot.inst = self:MapToWorld(mapID, spot.x, spot.y)
-	end
+	-- every visit (not every tap of a multi-tap vein) adds to the average
+	if spot.map == mapID and (newVisit or firstMine) then AddGather(spot, x, y) end
 	-- a rough hover of this vein saved as its own "seen" spot is this one
 	Absorb(spot, MERGE_YARDS)
 	self:Changed()
@@ -322,18 +353,12 @@ local function SharesOre(a, b)
 	return false
 end
 
--- Fold never-mined spot `s` into `into`: the ores and the latest sighting;
--- if `into` is never-mined too, its position becomes the weighted average.
+-- Fold never-mined spot `s` into `into`: its ores, latest sighting and
+-- hover estimate.
 local function Fold(into, s)
 	for name in pairs(s.ores) do into.ores[name] = into.ores[name] or 0 end
 	into.seenAt = max(into.seenAt or 0, s.seenAt or 0)
-	if not into.last and into.map == s.map then
-		local a, b = into.seenN or 1, s.seenN or 1
-		into.x = (into.x * a + s.x * b) / (a + b)
-		into.y = (into.y * a + s.y * b) / (a + b)
-		into.seenN = min(a + b, 20)
-		into.wx, into.wy, into.inst = ns:MapToWorld(into.map, into.x, into.y)
-	end
+	if into.map == s.map and s.hErr then AddHover(into, s.hx, s.hy, s.hErr) end
 end
 
 -- Fold every never-mined spot sharing an ore with `spot` within `reach` into
@@ -357,9 +382,8 @@ function Absorb(spot, reach)
 	end
 end
 
--- A Find Minerals dot for `name` was hovered around this position, which is
--- only accurate to `slop` yards (the dot's tooltip shows anywhere near it);
--- `err` is set when the hover crossed the dot, so its centre is reliable.
+-- A Find Minerals dot for `name` was hovered around this position, at most
+-- `err` yards off; `slop` is how far from the dot its tooltip shows.
 -- Marks the spot there as up, or saves a new "seen" spot. Never-mined spots
 -- of the same ore within reach are one vein: they average together.
 -- Seeing a vein is not a visit.
@@ -376,24 +400,18 @@ function ns:RecordSeen(name, wx, wy, inst, mapID, x, y, slop, err)
 	end
 	if not spot then
 		NewSpot(mapID, x, y, wx, wy, inst, name, false, now)
-		Absorb(self.db.spots[#self.db.spots], reach)
+		local new = self.db.spots[#self.db.spots]
+		AddHover(new, x, y, err or slop or SEEN_REACH)
+		Absorb(new, reach)
 		return self:Changed()
 	end
 	local moved
-	-- a mined spot is where you stood; a precise hover (zoomed in) shows
-	-- where the vein is: move the spot toward it, weighted by accuracy
-	if spot.last and err and spot.map == mapID then
-		local cur = spot.fixErr or STAND_YARDS / sqrt(spot.posN or 1)
-		if err < cur then
-			local a, b = 1 / (cur * cur), 1 / (err * err)
-			spot.x = (spot.x * a + x * b) / (a + b)
-			spot.y = (spot.y * a + y * b) / (a + b)
-			spot.fixErr = max(1, 1 / sqrt(a + b))
-			spot.wx, spot.wy, spot.inst = self:MapToWorld(mapID, spot.x, spot.y)
-			moved = true
-			if self.hoverDebug then
-				self:Print("  hover %.0f yd from the mined spot: moved it toward the vein (now within ~%.0f yd)", d, spot.fixErr)
-			end
+	if spot.map == mapID then
+		AddHover(spot, x, y, err or slop or SEEN_REACH)
+		moved = true
+		if self.hoverDebug then
+			self:Print("  hover %.0f yd from the spot: averaged in (hovers now good to ~%.0f yd, %d gathers)",
+				d, spot.hErr, spot.gN or 0)
 		end
 	end
 	-- right after mining, the dot can linger a moment: that isn't "up"
@@ -403,14 +421,6 @@ function ns:RecordSeen(name, wx, wy, inst, mapID, x, y, slop, err)
 	end
 	local wasUp = SeenUp(spot)
 	spot.seenAt = now
-	if not spot.last and spot.map == mapID then
-		local n = min((spot.seenN or 1) + 1, 20)
-		spot.seenN = n
-		spot.x = spot.x + (x - spot.x) / n
-		spot.y = spot.y + (y - spot.y) / n
-		spot.wx, spot.wy, spot.inst = self:MapToWorld(mapID, spot.x, spot.y)
-		moved = true
-	end
 	if not spot.ores[name] then
 		spot.ores[name] = 0
 		if not spot.last then spot.lastOre = name end
@@ -441,7 +451,57 @@ local function MergeSeenDuplicates()
 	pass(true, ADOPT_REACH)
 	pass(false, SEEN_REACH)
 end
-ns:On("VK_LOADED", MergeSeenDuplicates)
+
+-- At load: mined spots of the same ore this close are one vein saved twice
+-- (a respawn taken for a neighbour): merge their history and averages.
+local DUPLICATE_YARDS = 6
+local function MergeMinedDuplicates()
+	local spots, gone = ns.db.spots, {}
+	for i, a in ipairs(spots) do
+		for j = i + 1, #spots do
+			local b = spots[j]
+			if not gone[a] and not gone[b] and a.last and b.last and a.wx and b.wx
+				and a.inst == b.inst and a.map == b.map and SharesOre(a, b)
+				and (a.wx - b.wx) ^ 2 + (a.wy - b.wy) ^ 2 < DUPLICATE_YARDS * DUPLICATE_YARDS then
+				for name, n in pairs(b.ores) do a.ores[name] = (a.ores[name] or 0) + n end
+				a.visits, a.taps = a.visits + b.visits, a.taps + b.taps
+				a.first, a.last = min(a.first, b.first), max(a.last, b.last)
+				a.minGap = (a.minGap and b.minGap) and min(a.minGap, b.minGap) or a.minGap or b.minGap
+				a.seenAt = max(a.seenAt or 0, b.seenAt or 0)
+				if b.gN then
+					local n = (a.gN or 0) + b.gN
+					a.gx = ((a.gx or 0) * (a.gN or 0) + b.gx * b.gN) / n
+					a.gy = ((a.gy or 0) * (a.gN or 0) + b.gy * b.gN) / n
+					a.gN = n
+				end
+				if b.hErr then AddHover(a, b.hx, b.hy, b.hErr) else Settle(a) end
+				gone[b] = true
+			end
+		end
+	end
+	if next(gone) then ns:RemoveSpots(function(s) return gone[s] end) end
+end
+
+-- Spots saved before the two averages existed: their position counts as
+-- the gather average (mined) or one rough hover (never mined).
+local function Migrate()
+	for _, s in ipairs(ns.db.spots) do
+		if not (s.gN or s.hErr) then
+			if s.last then
+				s.gx, s.gy, s.gN = s.x, s.y, s.posN or 1
+			else
+				s.hx, s.hy, s.hErr = s.x, s.y, s.fixErr or 10
+			end
+		end
+		s.posN, s.fixErr, s.seenN = nil, nil, nil
+	end
+end
+
+ns:On("VK_LOADED", function()
+	Migrate()
+	MergeMinedDuplicates()
+	MergeSeenDuplicates()
+end)
 
 function ns:Forget(spot)
 	for i, s in ipairs(self.db.spots) do
