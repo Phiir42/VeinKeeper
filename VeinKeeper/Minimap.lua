@@ -294,13 +294,20 @@ end
 
 -- Node names in the tooltip if it's the minimap's own tracking-dot tooltip.
 -- Forever shows that owned by UIParent; other addons' pins own theirs.
+-- A tooltip line's text, or nil if the game made it secret (in instances).
+local function TipText(i)
+	local t = _G["GameTooltipTextLeft" .. i]:GetText()
+	if t and issecretvalue and issecretvalue(t) then return nil end
+	return t
+end
+
 local function ReadTooltip(lines)
 	local owner = GameTooltip:GetOwner()
 	if debug then
 		ns:Print("hover: tooltip owner %s, Find Minerals %s, %d lines:",
 			FrameName(owner), tracking and "on" or "off", lines)
 		for i = 1, lines do
-			print(("  %d: %s"):format(i, (_G["GameTooltipTextLeft" .. i]:GetText() or ""):gsub("|", "||")))
+			print(("  %d: %s"):format(i, (TipText(i) or "?"):gsub("|", "||")))
 		end
 	end
 	if owner ~= Minimap and owner ~= UIParent then return false end
@@ -308,7 +315,7 @@ local function ReadTooltip(lines)
 	local names
 	for i = 1, lines do
 		-- several dots under the cursor are listed one per line, sometimes in one string
-		for line in (_G["GameTooltipTextLeft" .. i]:GetText() or ""):gmatch("[^\n]+") do
+		for line in (TipText(i) or ""):gmatch("[^\n]+") do
 			local name = ns:NodeName(CleanLine(line))
 			if name then
 				names = names or {}
@@ -410,7 +417,7 @@ local function CheckHover()
 		lastTip = nil
 		return Flush()
 	end
-	local first, lines = GameTooltipTextLeft1:GetText(), GameTooltip:NumLines()
+	local first, lines = TipText(1), GameTooltip:NumLines()
 	if first ~= lastTip or lines ~= lastTipLines then
 		Flush()
 		if dotTip then dotTip:Hide() end
@@ -431,7 +438,7 @@ local function CheckHover()
 				local s = hover
 				if not s or s.bad or not (GameTooltip:IsShown() and Minimap:IsMouseOver()) then return end
 				-- only samples of this same tooltip, at the scale it began at
-				if GameTooltipTextLeft1:GetText() ~= s.tip or GameTooltip:NumLines() ~= s.lines then return end
+				if TipText(1) ~= s.tip or GameTooltip:NumLines() ~= s.lines then return end
 				if Minimap:GetZoom() ~= s.zoom or indoors ~= s.indoors then
 					s.bad = "the minimap zoomed during the hover"
 					return

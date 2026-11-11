@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.7
+
+**Fixed**
+- A Lua error when mining or hovering the minimap in a dungeon, where the game hides cast targets and some tooltip text. Spots still aren't saved inside instances (they have no map position).
+
 ## 1.2.6
 
 **Fixed**

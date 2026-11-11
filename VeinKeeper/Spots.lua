@@ -653,11 +653,13 @@ ns:On("PLAYER_LOGIN", function() MINING = ns:SpellName(2575) or "Mining" end)
 
 ns:On("UNIT_SPELLCAST_SENT", function(_, target, castGUID, spellID)
 	if not spellID or ns:SpellName(spellID) ~= MINING then return end
-	local shown = target ~= "" and target or nil
+	-- in instances the target and tooltip text can be secret: unreadable
+	local secret = issecretvalue or function() return false end
+	local shown = not secret(target) and target ~= "" and target or nil
 	if not shown and GameTooltip:IsShown() then
 		-- the node under the cursor, but only a name known to be a node
 		local t = GameTooltipTextLeft1:GetText()
-		shown = ns:NodeName(t) and t or nil
+		shown = t and not secret(t) and ns:NodeName(t) and t or nil
 	end
 	local soft = UnitGUID and UnitGUID("softinteract")
 	local softID = ns:ObjectID(soft)
