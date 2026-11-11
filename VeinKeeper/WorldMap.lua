@@ -65,6 +65,53 @@ function provider:RemoveAllData()
 	self:GetMap():RemoveAllPinsByTemplate(TEMPLATE)
 end
 
+local MapType = Enum and Enum.UIMapType or {}
+local WORLD, CONTINENT = MapType.World or 1, MapType.Continent or 2
+
+-- The continent map a zone map is on (cached; false if none).
+local continentOf = {}
+local function ContinentOf(mapID)
+	local c = continentOf[mapID]
+	if c == nil then
+		c = false
+		local id = mapID
+		while id and id > 0 do
+			local info = C_Map.GetMapInfo(id)
+			if not info then break end
+			if info.mapType == CONTINENT then c = id break end
+			id = info.parentMapID
+		end
+		continentOf[mapID] = c
+	end
+	return c or nil
+end
+
+-- The World map shows each continent at its own scale, so no single
+-- projection fits: place each spot on its continent's map, then put that
+-- map where the World map draws the continent.
+local function WorldPins(map, worldID)
+	if not C_Map.GetMapRectOnMap then return end
+	local rects = {}
+	for _, spot in ipairs(ns.db.spots) do
+		local cont = spot.wx and ns:IsShown(spot) and ContinentOf(spot.map)
+		local b = cont and ns:Basis(cont)
+		if b and b.inst == spot.inst then
+			local r = rects[cont]
+			if r == nil then
+				local minX, maxX, minY, maxY = C_Map.GetMapRectOnMap(cont, worldID)
+				r = minX and maxX > minX and maxY > minY and { minX, maxX, minY, maxY } or false
+				rects[cont] = r
+			end
+			if r then
+				local cx, cy = ns:WorldToMap(b, spot.wx, spot.wy)
+				if cx >= 0 and cx <= 1 and cy >= 0 and cy <= 1 then
+					map:AcquirePin(TEMPLATE, spot, r[1] + cx * (r[2] - r[1]), r[3] + cy * (r[4] - r[3]))
+				end
+			end
+		end
+	end
+end
+
 -- MapCanvas calls this with fromOnShow = true every time the map opens; if
 -- nothing changed while it was closed, recolouring the pins is enough.
 function provider:RefreshAllData(fromOnShow)
@@ -75,6 +122,10 @@ function provider:RefreshAllData(fromOnShow)
 	local map = self:GetMap()
 	local mapID = map:GetMapID()
 	if not mapID then return end
+	local info = C_Map.GetMapInfo(mapID)
+	if mapID == 947 or (info and info.mapType and info.mapType <= WORLD) then
+		return WorldPins(map, mapID)
+	end
 	local b = ns:Basis(mapID)
 	for _, spot in ipairs(ns.db.spots) do
 		if ns:IsShown(spot) then

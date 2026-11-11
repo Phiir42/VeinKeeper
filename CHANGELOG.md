@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.8
+
+**Fixed**
+- Pins in the sea on the World map: it shows each continent at its own scale, so each pin is now placed on its own continent there.
+
 ## 1.2.7
 
 **Fixed**
