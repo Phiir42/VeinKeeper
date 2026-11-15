@@ -260,7 +260,9 @@ end
 -- into a box; the box's centre is recorded when the tooltip goes away.
 -- Moving the cursor across the dot gives its centre.
 local hover -- { names, inst, mapID, b, slop, x0, x1, y0, y1, n, sx, sy, start, ... }
-local hoverNames -- node names in the current tooltip, or false
+local hoverNames -- node names in the current tooltip, NAMELESS, or false
+-- A single dot whose name the game hid: it can only confirm a saved spot.
+local NAMELESS = {}
 
 local sampler -- samples the cursor every frame, only while a dot's tooltip is up
 
@@ -290,33 +292,46 @@ local function Flush()
 		ns:Print("  recorded from %d samples over a %.0f x %.0f yd box, good to ~%.0f yd",
 			h.n, h.x1 - h.x0, h.y1 - h.y0, err)
 	end
+	if h.names == NAMELESS then
+		local what = ns:RecordSeenAt(wx, wy, h.inst, err)
+		if debug then ns:Print("  name hidden by the game: %s", what) end
+		return
+	end
 	for _, name in ipairs(h.names) do ns:RecordSeen(name, wx, wy, h.inst, h.mapID, nx, ny, h.slop, err) end
 end
 
 -- Node names in the tooltip if it's the minimap's own tracking-dot tooltip.
 -- Forever shows that owned by UIParent; other addons' pins own theirs.
--- A tooltip line's text, or nil if the game made it secret (in instances).
+-- A tooltip line's text, or nil, true if the game made it secret (in
+-- instances, and on newer clients everywhere): addons can't read it then.
 local function TipText(i)
 	local t = _G["GameTooltipTextLeft" .. i]:GetText()
-	if t and issecretvalue and issecretvalue(t) then return nil end
+	if t and issecretvalue and issecretvalue(t) then return nil, true end
 	return t
 end
 
+local secretNoted -- told this session that the game hides the dots' names
+
+-- The node names, or false; and whether any line was secret.
 local function ReadTooltip(lines)
 	local owner = GameTooltip:GetOwner()
 	if debug then
 		ns:Print("hover: tooltip owner %s, Find Minerals %s, %d lines:",
 			FrameName(owner), tracking and "on" or "off", lines)
 		for i = 1, lines do
-			print(("  %d: %s"):format(i, (TipText(i) or "?"):gsub("|", "||")))
+			local t, secret = TipText(i)
+			print(("  %d: %s"):format(i, secret and "(secret: the game hides this text from addons)"
+				or (t or "?"):gsub("|", "||")))
 		end
 	end
 	if owner ~= Minimap and owner ~= UIParent then return false end
 	if GameTooltip:GetUnit() or not tracking then return false end
-	local names
+	local names, hidden
 	for i = 1, lines do
+		local t, secret = TipText(i)
+		hidden = hidden or secret
 		-- several dots under the cursor are listed one per line, sometimes in one string
-		for line in (TipText(i) or ""):gmatch("[^\n]+") do
+		for line in (t or ""):gmatch("[^\n]+") do
 			local name = ns:NodeName(CleanLine(line))
 			if name then
 				names = names or {}
@@ -324,7 +339,7 @@ local function ReadTooltip(lines)
 			end
 		end
 	end
-	return names or false
+	return names or false, hidden
 end
 
 -- The world position under the cursor on the minimap: hx, hy, inst, the
@@ -410,15 +425,24 @@ local function CheckHover()
 		return
 	end
 	if not (shown and over) or (ringTip and owner == ringTip) then
-		lastTip = nil
+		-- both, so the next tooltip is read even if it looks the same (a
+		-- secret first line reads as nil every time)
+		lastTip, lastTipLines = nil, nil
 		return Flush()
 	end
 	local first, lines = TipText(1), GameTooltip:NumLines()
 	if first ~= lastTip or lines ~= lastTipLines then
 		Flush()
 		if dotTip then dotTip:Hide() end
-		hoverNames = ReadTooltip(lines)
+		local hidden
+		hoverNames, hidden = ReadTooltip(lines)
+		-- one line: one dot (several dots under the cursor give a line each)
+		if hidden and not hoverNames and lines == 1 then hoverNames = NAMELESS end
 		if hoverNames then Annotate(CursorWorld()) end
+		if hidden and not secretNoted and ns.db.settings.recordSeen then
+			secretNoted = true
+			ns:Print(L["the game hides minimap dot names from addons here: hovering a dot only marks a saved spot as up. New veins are saved when you mine them."])
+		end
 		lastTip, lastTipLines = first, lines
 	end
 	if not (hoverNames and ns.db.settings.recordSeen) then return end
@@ -506,6 +530,7 @@ end
 function ns:ToggleHoverDebug()
 	debug = not debug
 	self.hoverDebug = debug
+	lastTip, lastTipLines = nil, nil -- read the next tooltip afresh
 	UpdateTracking()
 	if not debug then return self:Print("hover debug off.") end
 	self:Print("hover debug on: hover minimap dots and their tooltips print here. /vk debug again to stop.")

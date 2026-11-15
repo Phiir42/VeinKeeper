@@ -36,7 +36,8 @@ read_globals = {
 	"C_AddOnProfiler", "C_Item", "C_Map", "C_Minimap", "C_Spell", "C_SuperTrack", "C_Timer", "Enum",
 	-- functions
 	"CollapseSkillHeader", "CreateFrame", "CreateFromMixins", "CreateVector2D", "debugprofilestop",
-	"ExpandSkillHeader", "GetCVar", "GetCursorPosition", "GetItemIcon", "GetItemInfo", "GetLootSlotInfo",
+	"ExpandSkillHeader", "canaccesstable", "canaccessvalue", "GetBuildInfo", "GetCVar", "GetCursorPosition", "hooksecurefunc",
+	"IsInInstance", "issecrettable", "GetItemIcon", "GetItemInfo", "GetLootSlotInfo",
 	"GetLocale", "GetLootSlotLink", "GetLootSourceInfo", "GetMinimapShape", "GetNumLootItems", "GetNumSkillLines",
 	"GetPlayerFacing", "GetSkillLineInfo",
 	"GetSpellInfo", "GetSpellTexture", "GetTime", "GetTrackingTexture", "IsIndoors", "IsShiftKeyDown",

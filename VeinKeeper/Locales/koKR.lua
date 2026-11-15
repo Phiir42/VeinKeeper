@@ -126,6 +126,9 @@ L["not back yet: %d of %d (%d%%)"] = "아직 재생성 전: %d / %d (%d%%)"
 L["Forget all VeinKeeper visit counts?"] = "VeinKeeper의 모든 방문 기록을 삭제할까요?"
 L["visit counts cleared."] = "방문 기록을 삭제했습니다."
 
+-- Minimap.lua
+L["the game hides minimap dot names from addons here: hovering a dot only marks a saved spot as up. New veins are saved when you mine them."] = "여기서는 게임이 애드온에게 미니맵 점의 이름을 숨깁니다: 점에 마우스를 올리면 저장된 위치를 생성됨으로만 표시합니다. 새 광맥은 채광할 때 저장됩니다."
+
 -- Buttons.lua
 L["%d spots saved"] = "저장된 지점 %d개"
 L["Showing only %s"] = "%s만 표시 중"

@@ -126,6 +126,9 @@ L["not back yet: %d of %d (%d%%)"] = "ещё не восстановилась: 
 L["Forget all VeinKeeper visit counts?"] = "Забыть всю статистику посещений VeinKeeper?"
 L["visit counts cleared."] = "статистика посещений очищена."
 
+-- Minimap.lua
+L["the game hides minimap dot names from addons here: hovering a dot only marks a saved spot as up. New veins are saved when you mine them."] = "здесь игра скрывает от аддонов названия точек на миникарте: наведение на точку лишь отмечает сохранённое место как появившееся. Новые жилы сохраняются, когда вы их добываете."
+
 -- Buttons.lua
 L["%d spots saved"] = "Сохранено точек: %d"
 L["Showing only %s"] = "Показана только: %s"

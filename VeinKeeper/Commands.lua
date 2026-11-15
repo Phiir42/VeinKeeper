@@ -184,6 +184,8 @@ SlashCmdList.VEINKEEPER = function(msg)
 		ns:Changed()
 	elseif cmd == "debug" then
 		ns:ToggleHoverDebug()
+	elseif cmd == "probe" then
+		ns:Probe()
 	elseif cmd == "cpu" then
 		ns:MeasureCPU()
 	elseif cmd == "next" then

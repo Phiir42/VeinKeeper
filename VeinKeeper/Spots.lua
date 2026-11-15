@@ -738,6 +738,48 @@ function ns:RecordSeen(name, wx, wy, inst, mapID, x, y, slop, err)
 	end
 end
 
+-- Are all of a spot's ores one respawn group (so a sighting is a sample of
+-- that group, whichever of them is up)?
+local function OneGroup(spot)
+	local group = {}
+	for _, n in ipairs(ns:RespawnGroup(spot.lastOre)) do group[n] = true end
+	for n in pairs(spot.ores) do
+		if not group[n] then return false end
+	end
+	return true
+end
+
+-- A Find Minerals dot was hovered around this position, at most `err` yards
+-- off, but the game hid its name (WoW Forever, since Nov 2026). Without a
+-- name only a saved spot can be matched, so this never saves or moves a
+-- spot: if exactly one saved spot is within both errors, its vein is up now.
+-- Returns what it did, for /vk debug.
+function ns:RecordSeenAt(wx, wy, inst, err)
+	local spot
+	for _, s in ipairs(Near(wx, wy, inst)) do
+		local ignored = true
+		for n in pairs(s.ores) do
+			if not self.db.ignore[n] then ignored = false end
+		end
+		if not ignored and sqrt((s.wx - wx) ^ 2 + (s.wy - wy) ^ 2) <= Gate(err, SpotErr(s)) then
+			if spot then return "two saved spots in reach: can't tell which" end
+			spot = s
+		end
+	end
+	if not spot then return "no saved spot in reach: nothing saved (the game hides the name)" end
+	local now = time()
+	-- right after mining, the dot can linger a moment: that isn't "up"
+	if spot.last and now - spot.last < MULTITAP_SEC then return "the spot was just mined" end
+	local wasUp = SeenUp(spot)
+	-- the first sighting since it was mined: it was back by now. Which ore is
+	-- up isn't known, so only a sample when they share one timer.
+	local learned = spot.last and not wasUp and OneGroup(spot)
+	if learned then Learn(spot.lastOre, now - spot.last) end
+	spot.seenAt = now
+	if not wasUp then self:Restyle() end
+	return ("marked a saved %s spot up%s"):format(spot.lastOre, learned and ", a respawn sample" or "")
+end
+
 -- A spot from another player's export: `names` (node names, at least one)
 -- at x, y on mapID, `err` yards good. A spot you have of the same vein (within
 -- both errors) gains its ores, and its position if you've never mined it;

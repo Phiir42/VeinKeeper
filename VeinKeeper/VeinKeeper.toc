@@ -30,6 +30,7 @@ WorldMap.lua
 WorldMap.xml
 Route.lua
 Pool.lua
+Probe.lua
 Minimap.lua
 Buttons.lua
 Config.lua

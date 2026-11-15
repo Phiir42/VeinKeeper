@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+**New**
+- `/vk probe`: a diagnostic of what the game lets addons read. It prints the client build and secret-restriction state, then reports every way of reading a hovered minimap dot's tooltip (its lines, its tooltip data, and what the game passed to it), then what a mined vein's cast, soft target and loot source show. Nothing is saved.
+
+**Fixed**
+- Since WoW Forever's 12 November client (build 70938), the game hides minimap dot names from addons everywhere, so a hovered dot can't say which vein it is. VeinKeeper used to fail silently. Now a hovered dot on a saved spot (exactly one in reach) marks that spot's vein as up, and counts as a respawn sample when the spot's ores share one timer. Hovers never save or move spots any more while names are hidden; new veins are saved when you mine them. VeinKeeper says this once per session, and `/vk debug` shows what each hover did.
+- `/vk debug` could stop printing hovers when one dot's tooltip looked the same as the last.
+
 ## 1.2.15
 
 **New**

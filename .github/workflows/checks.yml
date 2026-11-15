@@ -51,6 +51,9 @@ jobs:
       - name: Yield
         run: python tools/test_yield.py
 
+      - name: Minimap hover
+        run: python tools/test_hover.py
+
       - name: Translations
         run: |
           python tools/locales.py

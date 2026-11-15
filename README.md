@@ -16,7 +16,7 @@ A lightweight World of Warcraft: Forever addon that remembers every ore vein you
 
 **Recording**
 - Saves a spot when you finish mining a node. Works in any client language. Shared spawn points (Tin/Silver, Mithril/Truesilver) merge into one spot, re-hitting a multi-tap vein counts as one visit, and the position is averaged over your first visits.
-- With Find Minerals on, hovering a vein's yellow dot on the minimap saves it too, to within a few yards. It gets a blue ring until you mine it. Hovering a known spot's dot marks it as up.
+- With Find Minerals on, hovering a vein's yellow dot on the minimap saves it too, to within a few yards. It gets a blue ring until you mine it. Hovering a known spot's dot marks it as up. Since WoW Forever's 12 November 2026 client the game hides those dot names from addons, so only the last part still works: a hovered dot on a saved spot marks it as up, and new veins are saved when you mine them.
 
 **Pins**
 - The game's own ore icon for each node, cut round. Season of Discovery quest nodes use VeinKeeper's drawn icons; `/vk icons` uses the drawn set everywhere.
