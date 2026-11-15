@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+**New**
+- Translations: VeinKeeper's own text (chat messages, tooltips, the settings and sharing windows, key binding names) now shows in German, French, Italian, Spanish (Spain and Latin America), Brazilian Portuguese, Russian, Korean and Chinese (simplified and traditional). These are first drafts; corrections from native speakers are very welcome (see *Translating* in the README). Text not yet translated stays English, and a translation with the wrong placeholders is ignored instead of causing an error.
+- Vein names in tooltips and messages show as your game client names them once you've mined that kind of vein, and `/vk ignore` and `/vk only` accept those names too.
+
 ## 1.2.12
 
 **New**

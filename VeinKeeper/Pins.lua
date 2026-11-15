@@ -1,7 +1,8 @@
 -- Pins: the look, tooltip and clicks shared by world map and minimap pins.
 local _, ns = ...
+local L = ns.L
 
-local floor, time = math.floor, time
+local time = time
 local GREY = 0.8
 
 function ns:CreatePinTextures(pin)
@@ -72,7 +73,7 @@ local MAX_LISTED = 8
 function ns:AddSummaries(tt, list)
 	for i, e in ipairs(list) do
 		if i > MAX_LISTED then
-			tt:AddLine(("+ %d more"):format(#list - MAX_LISTED), GREY, GREY, GREY)
+			tt:AddLine(L["+ %d more"]:format(#list - MAX_LISTED), GREY, GREY, GREY)
 			break
 		end
 		local spot = e.spot
@@ -81,15 +82,15 @@ function ns:AddSummaries(tt, list)
 		local r, g, b, ready = self:Freshness(spot)
 		local state
 		if self:SeenUp(spot) then
-			state = "seen up " .. self:FormatTime(time() - spot.seenAt) .. " ago"
+			state = L["seen up %s ago"]:format(self:FormatTime(time() - spot.seenAt))
 		elseif not spot.last then
-			state = spot.seenAt and "seen, not mined" or "imported"
+			state = spot.seenAt and L["seen, not mined"] or L["imported"]
 		elseif ready then
-			state = "likely back"
+			state = L["likely back"]
 		else
-			state = "back in " .. self:FormatTime(self:Wait(spot))
+			state = L["back in %s"]:format(self:FormatTime(self:Wait(spot)))
 		end
-		tt:AddDoubleLine(ore, state, c[1], c[2], c[3], r, g, b)
+		tt:AddDoubleLine(self:NodeLabel(ore), state, c[1], c[2], c[3], r, g, b)
 	end
 end
 
@@ -101,61 +102,62 @@ function ns:ShowTooltip(owner, spot, nearby, noClick)
 	tt:SetOwner(owner, "ANCHOR_RIGHT")
 	local ore = self:DisplayOre(spot)
 	local c = self:NodeInfo(ore).color
-	tt:AddLine(ore, c[1], c[2], c[3])
+	tt:AddLine(self:NodeLabel(ore), c[1], c[2], c[3])
 
 	local r, g, b, ready = self:Freshness(spot)
 	if spot.last then
-		tt:AddDoubleLine("Last mined", self:FormatTime(time() - spot.last) .. " ago", 1, 1, 1, r, g, b)
+		tt:AddDoubleLine(L["Last mined"], L["%s ago"]:format(self:FormatTime(time() - spot.last)), 1, 1, 1, r, g, b)
 	elseif spot.seenAt then
-		tt:AddLine("Seen on the minimap, not mined yet", r, g, b)
+		tt:AddLine(L["Seen on the minimap, not mined yet"], r, g, b)
 	else
-		tt:AddLine("Imported, not mined or seen yet", r, g, b)
+		tt:AddLine(L["Imported, not mined or seen yet"], r, g, b)
 	end
 	if self:SeenUp(spot) then
-		tt:AddDoubleLine("Seen up", self:FormatTime(time() - spot.seenAt) .. " ago", 1, 1, 1, r, g, b)
+		tt:AddDoubleLine(L["Seen up"], L["%s ago"]:format(self:FormatTime(time() - spot.seenAt)), 1, 1, 1, r, g, b)
 	elseif not ready then
-		tt:AddDoubleLine("Likely back in", self:FormatTime(self:Wait(spot)), 1, 1, 1, r, g, b)
+		tt:AddDoubleLine(L["Likely back in"], self:FormatTime(self:Wait(spot)), 1, 1, 1, r, g, b)
 	end
 	if spot.last then
 		local sec, n = self:Respawn(spot.lastOre)
-		tt:AddDoubleLine("Respawn", "~" .. self:FormatTime(sec) .. (n > 0 and (" (learned, %d)"):format(n) or " (setting)"),
+		tt:AddDoubleLine(L["Respawn"],
+			n > 0 and L["~%s (learned, %d)"]:format(self:FormatTime(sec), n) or L["~%s (setting)"]:format(self:FormatTime(sec)),
 			1, 1, 1, GREY, GREY, GREY)
 	end
 	local yield = self:YieldText(ore)
-	if yield then tt:AddDoubleLine("Yield", yield, 1, 1, 1, GREY, GREY, GREY) end
+	if yield then tt:AddDoubleLine(L["Yield"], yield, 1, 1, 1, GREY, GREY, GREY) end
 	if spot.minGap then
-		tt:AddDoubleLine("Fastest here", "<= " .. self:FormatTime(spot.minGap), 1, 1, 1, GREY, GREY, GREY)
+		tt:AddDoubleLine(L["Fastest here"], "<= " .. self:FormatTime(spot.minGap), 1, 1, 1, GREY, GREY, GREY)
 	end
 	if spot.visits > 0 then
-		tt:AddDoubleLine("Visits / taps", spot.visits .. " / " .. spot.taps, 1, 1, 1, GREY, GREY, GREY)
+		tt:AddDoubleLine(L["Visits / taps"], spot.visits .. " / " .. spot.taps, 1, 1, 1, GREY, GREY, GREY)
 	end
 	local d = self:Distance(spot)
-	if d then tt:AddDoubleLine("Distance", floor(d) .. " yd", 1, 1, 1, GREY, GREY, GREY) end
+	if d then tt:AddDoubleLine(L["Distance"], L["%d yd"]:format(d), 1, 1, 1, GREY, GREY, GREY) end
 	local stop, stops, isNext = self:RouteStop(spot)
 	if stop then
-		tt:AddDoubleLine("Farm route", ("stop %d of %d%s"):format(stop, stops, isNext and ", next" or ""),
+		tt:AddDoubleLine(L["Farm route"], (isNext and L["stop %d of %d, next"] or L["stop %d of %d"]):format(stop, stops),
 			1, 1, 1, 1, 0.82, 0)
 	end
 
 	if next(spot.ores, next(spot.ores)) then -- more than one ore
 		tt:AddLine(" ")
-		tt:AddLine("Ores seen here:", 1, 0.82, 0)
+		tt:AddLine(L["Ores seen here:"], 1, 0.82, 0)
 		for name, count in pairs(spot.ores) do
 			local oc = self:NodeInfo(name).color
-			tt:AddDoubleLine(name, count > 0 and count .. "x" or "seen", oc[1], oc[2], oc[3], GREY, GREY, GREY)
+			tt:AddDoubleLine(self:NodeLabel(name), count > 0 and count .. "x" or L["seen"], oc[1], oc[2], oc[3], GREY, GREY, GREY)
 		end
 	end
 	if not self:CanMine(spot) then
-		tt:AddLine(("Needs Mining %d (you have %d)"):format(self:MinSkill(spot), self:SkillRank()), 1, 0.3, 0.3)
+		tt:AddLine(L["Needs Mining %d (you have %d)"]:format(self:MinSkill(spot), self:SkillRank()), 1, 0.3, 0.3)
 	end
 	if nearby then
 		tt:AddLine(" ")
-		tt:AddLine("Also here:", 1, 0.82, 0)
+		tt:AddLine(L["Also here:"], 1, 0.82, 0)
 		self:AddSummaries(tt, nearby)
 	end
 	if not noClick then
 		tt:AddLine(" ")
-		tt:AddLine("Click: waypoint   Shift + right-click: forget", 0.6, 0.6, 0.6)
+		tt:AddLine(L["Click: waypoint   Shift + right-click: forget"], 0.6, 0.6, 0.6)
 	end
 	tt:Show()
 end
@@ -163,7 +165,7 @@ end
 -- One VeinKeeper waypoint at a time: a new one replaces the last.
 local tomtomUID
 function ns:SetWaypoint(spot)
-	local name = self:DisplayOre(spot)
+	local name = self:NodeLabel(self:DisplayOre(spot))
 	if TomTom and TomTom.AddWaypoint then
 		if tomtomUID and TomTom.RemoveWaypoint then pcall(TomTom.RemoveWaypoint, TomTom, tomtomUID) end
 		tomtomUID = TomTom:AddWaypoint(spot.map, spot.x, spot.y, { title = name, persistent = false })
@@ -176,7 +178,7 @@ function ns:SetWaypoint(spot)
 			return
 		end
 	end
-	self:Print("%s at %.1f, %.1f (install TomTom for an arrow).", name, spot.x * 100, spot.y * 100)
+	self:Print(L["%s at %.1f, %.1f (install TomTom for an arrow)."], name, spot.x * 100, spot.y * 100)
 end
 
 function ns:PinClick(pin, button)
@@ -185,7 +187,7 @@ function ns:PinClick(pin, button)
 	if button == "RightButton" and IsShiftKeyDown() then
 		GameTooltip:Hide()
 		self:Forget(spot)
-		self:Print("forgot that %s spot.", self:DisplayOre(spot))
+		self:Print(L["forgot that %s spot."], self:NodeLabel(self:DisplayOre(spot)))
 	elseif button == "LeftButton" then
 		self:SetWaypoint(spot)
 	end

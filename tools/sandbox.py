@@ -92,21 +92,30 @@ WorldMapFrame.map = {
   RemoveAllPinsByTemplate = noop,
 }
 UnitOnTaxi = function() return false end
+GetLocale = function() return locale or "enUS" end
 Minimap = Obj()
 """
 
 
 
-def load(files, sources=None, before=None):
+def locale_files():
+    """The Locales\\ files the .toc loads, in its order."""
+    with open(os.path.join(ADDON, "VeinKeeper.toc"), encoding="utf-8") as fh:
+        return [l.strip().replace("\\", "/") for l in fh if l.strip().lower().startswith("locales\\")]
+
+
+def load(files, sources=None, before=None, locale="enUS"):
     """A Lua runtime with `files` (from VeinKeeper/) loaded as the addon, past
-    ADDON_LOADED and PLAYER_LOGIN; the addon table is the global `ns`.
+    ADDON_LOADED and PLAYER_LOGIN; the addon table is the global `ns`. The
+    .toc's locale files load first, with GetLocale() returning `locale`.
     sources: {file: text} to load instead of the file on disk. before: Lua
     run before ADDON_LOADED (to set VeinKeeperDB, the saved variables)."""
     lua = lupa_lua.LuaRuntime(unpack_returned_tuples=True)
     lua.execute(STUBS)
+    lua.globals().locale = locale
     ns = lua.eval("{}")
     compile_ = lua.execute("return function(src, name) return assert(loadstring(src, name)) end")
-    for f in files:
+    for f in locale_files() + [f for f in files if not f.startswith("Locales/")]:
         if sources and f in sources:
             text = sources[f]
         else:

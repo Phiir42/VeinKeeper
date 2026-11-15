@@ -14,6 +14,7 @@
 --   hx, hy, hErr   the Find Minerals hover estimate and yards it may be off
 --                  (x, y combines the two, weighted by accuracy: see Settle)
 local _, ns = ...
+local L = ns.L
 
 local MERGE_YARDS = 15   -- spots closer than this are the same spawn point
 local MULTITAP_SEC = 120 -- without node GUIDs: re-mining within this window is the same visit
@@ -165,6 +166,10 @@ function ns:ResolveNodeName(text)
 	end
 	for name in pairs(self.db.ignore) do
 		if name:lower() == lower then return name end
+	end
+	-- a name as this client shows it, learned when mining
+	for shown, name in pairs(self.db.names) do
+		if shown == text or shown:lower() == lower then return name end
 	end
 end
 
@@ -488,7 +493,7 @@ local function NewSpot(mapID, x, y, wx, wy, inst, name, mined, now)
 	if indexed == #db.spots - 1 then Index(db.spots[#db.spots]) end -- else Near rebuilds
 	if mined and not db.seenNote then
 		db.seenNote = true
-		ns:Print("saved your first vein (%s). Type /vk for options.", name)
+		ns:Print(L["saved your first vein (%s). Type /vk for options."], ns:NodeLabel(name))
 	end
 end
 
@@ -887,7 +892,7 @@ ns:On("UNIT_SPELLCAST_INTERRUPTED", CastEnded, "player")
 function ns:Next()
 	if self:RouteActive() then return self:RouteSkip() end
 	local wx, wy, inst = self:PlayerWorld()
-	if not wx then return self:Print("no position here.") end
+	if not wx then return self:Print(L["no position here."]) end
 	local best, bestD, soonest
 	for _, s in ipairs(self.db.spots) do
 		if s.wx and s.inst == inst and self:IsShown(s) and self:CanMine(s) then
@@ -907,11 +912,11 @@ function ns:Next()
 	end
 	if best then
 		self:SetWaypoint(best)
-		self:Print("next: %s, %d yd.", self:DisplayOre(best), floor(bestD))
+		self:Print(L["next: %s, %d yd."], self:NodeLabel(self:DisplayOre(best)), floor(bestD))
 	elseif soonest then
-		self:Print("nothing likely up yet; the soonest is back in %s.", self:FormatTime(soonest))
+		self:Print(L["nothing likely up yet; the soonest is back in %s."], self:FormatTime(soonest))
 	else
-		self:Print("no saved spots you can mine on this continent.")
+		self:Print(L["no saved spots you can mine on this continent."])
 	end
 end
 
@@ -930,14 +935,14 @@ function ns:Prune(days)
 		if stale(s) then n = n + 1 end
 	end
 	if n == 0 then
-		return self:Print("nothing to prune: no single-visit spots older than %d days.", days)
+		return self:Print(L["nothing to prune: no single-visit spots older than %d days."], days)
 	end
 	StaticPopup_Show("VEINKEEPER_PRUNE", n, days, days)
 end
 
 StaticPopupDialogs.VEINKEEPER_PRUNE = {
-	text = "Delete %d spots you've visited only once, more than %d days ago?",
+	text = L["Delete %d spots you've visited only once, more than %d days ago?"],
 	button1 = YES, button2 = NO,
-	OnAccept = function(_, days) ns:Print("pruned %d spots.", ns:RemoveSpots(Stale(days))) end,
+	OnAccept = function(_, days) ns:Print(L["pruned %d spots."], ns:RemoveSpots(Stale(days))) end,
 	timeout = 0, whileDead = true, hideOnEscape = true,
 }

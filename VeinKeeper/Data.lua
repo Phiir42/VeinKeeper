@@ -95,6 +95,17 @@ function ns:ObjectID(guid)
 	return tonumber(guid:match("^GameObject%-[^-]*%-[^-]*%-[^-]*%-[^-]*%-(%d+)%-"))
 end
 
+-- A node's name as this client shows it: the local name learned when mining
+-- it (VeinKeeperDB.names), else the English name it's saved under.
+function ns:NodeLabel(name)
+	if name and self.db then
+		for shown, english in pairs(self.db.names) do
+			if english == name then return shown end
+		end
+	end
+	return name
+end
+
 -- The game's own ore item icon when there is one (and /vk icons is on),
 -- otherwise the drawn icon. Season of Discovery quest nodes have no ore item.
 local itemIcons = {}

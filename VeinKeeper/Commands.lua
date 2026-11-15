@@ -1,47 +1,49 @@
 -- Slash commands: /vk, /veinkeeper.
 local _, ns = ...
+local L = ns.L
 
 local floor, sqrt, min, max, time = math.floor, math.sqrt, math.min, math.max, time
 
-local ON, OFF = "|cff40ff40on|r", "|cffff4040off|r"
+local ON, OFF = "|cff40ff40" .. L["on"] .. "|r", "|cffff4040" .. L["off"] .. "|r"
 
 -- /vk <word> toggles a setting
 local TOGGLES = {
-	map     = { "worldPins", "World map pins" },
-	minimap = { "minimapPins", "Minimap pins" },
-	icons   = { "gameIcons", "Game ore icons" },
-	skill   = { "skillDim", "Dimming spots above your skill" },
-	seen    = { "recordSeen", "Saving veins hovered on the minimap" },
-	button  = { "button", "Minimap button", function() ns:UpdateMinimapButton() end },
+	map     = { "worldPins", L["World map pins"] },
+	minimap = { "minimapPins", L["Minimap pins"] },
+	icons   = { "gameIcons", L["Game ore icons"] },
+	skill   = { "skillDim", L["Dimming spots above your skill"] },
+	seen    = { "recordSeen", L["Saving veins hovered on the minimap"] },
+	button  = { "button", L["Minimap button"], function() ns:UpdateMinimapButton() end },
 }
 
 -- /vk <word> <number> sets a number
 local NUMBERS = {
-	ready = { "readyMin", 1, 1440, "Respawn until learned: %d min" },
-	edge  = { "edgeCount", 0, 10, "Far spots on the minimap rim: %d" },
+	ready = { "readyMin", 1, 1440, L["Respawn until learned: %d min"] },
+	edge  = { "edgeCount", 0, 10, L["Far spots on the minimap rim: %d"] },
 }
 
 local function Help()
-	ns:Print("%d spots saved. Commands:", #ns.db.spots)
+	ns:Print(L["%d spots saved. Commands:"], #ns.db.spots)
+	-- the commands stay English in every language; what they do is translated
 	for _, line in ipairs({
-		"/vk  settings window",
-		"/vk next  waypoint to the nearest spot likely back (also a key binding)",
-		"/vk route | route off  farm route: a loop through this zone's spots, the waypoint moving on as you mine",
-		"/vk export [zone]  your spots (shown ones, or this zone's) as text to share",
-		"/vk import  merge someone's export into your spots",
-		"/vk near  list the closest spots",
-		"/vk only <ore>  show one ore only (/vk only all to reset)",
-		"/vk ignore <node> | unignore <node>  stop / resume recording a node type",
-		"/vk map | minimap | icons | skill | seen | button  toggle a setting",
-		"/vk ready <minutes> | edge <0-10>  respawn until learned, rim pin count",
-		"/vk respawn  learned respawn times per ore",
-		"/vk yield | yield reset  average loot a visit per vein type, and this session's",
-		"/vk inrange ring | hide | icon  spots in view with Find Minerals on",
-		"/vk prune [days]  delete single-visit spots older than [30] days",
-		"/vk clear zone | seen | imported | all  delete spots (seen: never mined; imported: not visited since)",
-		"/vk cpu  measure VeinKeeper's CPU use for 30 seconds",
+		{ "/vk", L["settings window"] },
+		{ "/vk next", L["waypoint to the nearest spot likely back (also a key binding)"] },
+		{ "/vk route | route off", L["farm route: a loop through this zone's spots, the waypoint moving on as you mine"] },
+		{ "/vk export [zone]", L["your spots (shown ones, or this zone's) as text to share"] },
+		{ "/vk import", L["merge someone's export into your spots"] },
+		{ "/vk near", L["list the closest spots"] },
+		{ "/vk only <ore>", L["show one ore only (/vk only all to reset)"] },
+		{ "/vk ignore <node> | unignore <node>", L["stop / resume recording a node type"] },
+		{ "/vk map | minimap | icons | skill | seen | button", L["toggle a setting"] },
+		{ "/vk ready <minutes> | edge <0-10>", L["respawn until learned, rim pin count"] },
+		{ "/vk respawn", L["learned respawn times per ore"] },
+		{ "/vk yield | yield reset", L["average loot a visit per vein type, and this session's"] },
+		{ "/vk inrange ring | hide | icon", L["spots in view with Find Minerals on"] },
+		{ "/vk prune [days]", L["delete single-visit spots older than [30] days"] },
+		{ "/vk clear zone | seen | imported | all", L["delete spots (seen: never mined; imported: not visited since)"] },
+		{ "/vk cpu", L["measure VeinKeeper's CPU use for 30 seconds"] },
 	}) do
-		print("  " .. line)
+		print("  " .. line[1] .. "  " .. line[2])
 	end
 end
 
@@ -49,21 +51,21 @@ local function Respawns()
 	local ores = {}
 	for ore in pairs(ns.db.respawn) do ores[#ores + 1] = ore end
 	if #ores == 0 then
-		return ns:Print("no respawns learned yet; using %d min. Mining a vein again or seeing its dot teaches it.",
+		return ns:Print(L["no respawns learned yet; using %d min. Mining a vein again or seeing its dot teaches it."],
 			ns.db.settings.readyMin)
 	end
 	table.sort(ores)
-	ns:Print("learned respawn times (until 3 samples, %d min):", ns.db.settings.readyMin)
+	ns:Print(L["learned respawn times (until 3 samples, %d min):"], ns.db.settings.readyMin)
 	for _, ore in ipairs(ores) do
 		local sec, n = ns:Respawn(ore)
-		print(("  %s: ~%s (%s)"):format(ore, ns:FormatTime(sec),
-			n > 0 and n .. " samples" or #ns.db.respawn[ore] .. " sample(s) so far, using the setting"))
+		print(("  %s: ~%s (%s)"):format(ns:NodeLabel(ore), ns:FormatTime(sec),
+			n > 0 and L["%d samples"]:format(n) or L["%d sample(s) so far, using the setting"]:format(#ns.db.respawn[ore])))
 	end
 end
 
 local function Near()
 	local wx, wy, inst = ns:PlayerWorld()
-	if not wx then return ns:Print("no position here.") end
+	if not wx then return ns:Print(L["no position here."]) end
 	local list = {}
 	for _, s in ipairs(ns.db.spots) do
 		if s.wx and s.inst == inst and ns:IsShown(s) then
@@ -71,18 +73,18 @@ local function Near()
 			list[#list + 1] = { spot = s, d = sqrt(dx * dx + dy * dy) }
 		end
 	end
-	if #list == 0 then return ns:Print("no saved spots nearby.") end
+	if #list == 0 then return ns:Print(L["no saved spots nearby."]) end
 	table.sort(list, function(a, b) return a.d < b.d end)
-	ns:Print("closest spots:")
+	ns:Print(L["closest spots:"])
 	for i = 1, min(5, #list) do
 		local s = list[i].spot
 		local state
 		if ns:Wait(s) <= 0 then
-			state = "|cff40ff40likely up|r"
+			state = "|cff40ff40" .. L["likely up"] .. "|r"
 		else
-			state = "mined " .. ns:FormatTime(time() - s.last) .. " ago"
+			state = L["mined %s ago"]:format(ns:FormatTime(time() - s.last))
 		end
-		print(("  %s - %d yd - %s"):format(ns:DisplayOre(s), floor(list[i].d), state))
+		print(("  %s - %s - %s"):format(ns:NodeLabel(ns:DisplayOre(s)), L["%d yd"]:format(list[i].d), state))
 	end
 end
 
@@ -99,50 +101,53 @@ local function Only(arg)
 				if c.label:lower():find(lower, 1, true) then key = c.key break end
 			end
 		end
-		if not key then return ns:Print("no saved spots for \"%s\".", arg) end
+		if not key then return ns:Print(L["no saved spots for \"%s\"."], arg) end
 		s.only = key
 	end
-	ns:Print("showing %s.", s.only and ns:OreLabel(s.only) or "all ores")
+	ns:Print(L["showing %s."], s.only and ns:OreLabel(s.only) or L["all ores"])
 	ns:Changed()
 end
 
 local function Ignore(cmd, arg)
 	if arg == "" then
 		local names = {}
-		for k in pairs(ns.db.ignore) do names[#names + 1] = k end
+		for k in pairs(ns.db.ignore) do names[#names + 1] = ns:NodeLabel(k) end
 		table.sort(names)
-		return ns:Print("ignored: %s", #names > 0 and table.concat(names, ", ") or "none")
+		return ns:Print(L["ignored: %s"], #names > 0 and table.concat(names, ", ") or L["none"])
 	end
 	-- ignoring is a filter: nothing is deleted, so unignore brings the pins back
 	local name = ns:ResolveNodeName(arg)
 	if not name then
-		return ns:Print("unknown node \"%s\". Use the full name, e.g. /vk ignore Copper Vein", arg)
+		return ns:Print(L["unknown node \"%s\". Use its full name, in English or as your game names it, e.g. /vk ignore Copper Vein"], arg)
 	end
 	ns.db.ignore[name] = (cmd == "ignore") or nil
-	ns:Print(cmd == "ignore" and "ignoring %s: not recorded, pins hidden." or "showing and recording %s again.", name)
+	ns:Print(cmd == "ignore" and L["ignoring %s: not recorded, pins hidden."] or L["showing and recording %s again."],
+		ns:NodeLabel(name))
 	ns:Changed()
 end
 
 local function Clear(arg)
 	if arg == "all" then return StaticPopup_Show("VEINKEEPER_CLEAR_ALL") end
 	if arg == "seen" then
-		return ns:Print("removed %d never-mined spots.", ns:RemoveSpots(function(s) return not s.last end))
+		return ns:Print(L["removed %d never-mined spots."], ns:RemoveSpots(function(s) return not s.last end))
 	end
 	if arg == "imported" then
-		return ns:Print("removed %d imported spots you haven't mined or seen.",
+		return ns:Print(L["removed %d imported spots you haven't mined or seen."],
 			ns:RemoveSpots(function(s) return s.imported and not s.last and not s.seenAt end))
 	end
 	if arg ~= "zone" then return Help() end
 	local mapID = C_Map.GetBestMapForUnit("player")
-	ns:Print("removed %d spots in this zone.", ns:RemoveSpots(function(s) return s.map == mapID end))
+	ns:Print(L["removed %d spots in this zone."], ns:RemoveSpots(function(s) return s.map == mapID end))
 end
 
 StaticPopupDialogs.VEINKEEPER_CLEAR_ALL = {
-	text = "Delete all saved VeinKeeper spots?",
+	text = L["Delete all saved VeinKeeper spots?"],
 	button1 = YES, button2 = NO,
-	OnAccept = function() ns:Print("deleted %d spots.", ns:RemoveSpots(function() return true end)) end,
+	OnAccept = function() ns:Print(L["deleted %d spots."], ns:RemoveSpots(function() return true end)) end,
 	timeout = 0, whileDead = true, hideOnEscape = true,
 }
+
+local INRANGE = { ring = "Hollow ring", hide = "Hidden", icon = "Full icon" }
 
 SLASH_VEINKEEPER1, SLASH_VEINKEEPER2 = "/vk", "/veinkeeper"
 SlashCmdList.VEINKEEPER = function(msg)
@@ -166,7 +171,7 @@ SlashCmdList.VEINKEEPER = function(msg)
 		ns:Changed()
 	elseif cmd == "inrange" and (arg == "ring" or arg == "hide" or arg == "icon") then
 		s.inRange = arg
-		ns:Print("spots in view with Find Minerals: %s.", arg)
+		ns:Print(L["spots in view with Find Minerals: %s."], L[INRANGE[arg]])
 		ns:Changed()
 	elseif cmd == "debug" then
 		ns:ToggleHoverDebug()

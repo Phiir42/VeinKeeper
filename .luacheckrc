@@ -37,7 +37,8 @@ read_globals = {
 	-- functions
 	"CollapseSkillHeader", "CreateFrame", "CreateFromMixins", "CreateVector2D", "debugprofilestop",
 	"ExpandSkillHeader", "GetCVar", "GetCursorPosition", "GetItemIcon", "GetItemInfo", "GetLootSlotInfo",
-	"GetLootSlotLink", "GetLootSourceInfo", "GetMinimapShape", "GetNumLootItems", "GetNumSkillLines", "GetPlayerFacing", "GetSkillLineInfo",
+	"GetLocale", "GetLootSlotLink", "GetLootSourceInfo", "GetMinimapShape", "GetNumLootItems", "GetNumSkillLines",
+	"GetPlayerFacing", "GetSkillLineInfo",
 	"GetSpellInfo", "GetSpellTexture", "GetTime", "GetTrackingTexture", "IsIndoors", "IsShiftKeyDown",
 	"issecretvalue", "StaticPopup_Show", "time", "tinsert", "ToggleDropDownMenu", "UIDropDownMenu_AddButton",
 	"UIDropDownMenu_CreateInfo", "UIDropDownMenu_Initialize", "UnitGUID", "UnitOnTaxi", "wipe",

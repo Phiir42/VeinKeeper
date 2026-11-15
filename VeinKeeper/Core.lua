@@ -1,6 +1,7 @@
 -- VeinKeeper core: saved data, events, change notification and coordinates.
 local ADDON, ns = ...
 VeinKeeper = ns -- Bindings.xml calls into this
+local L = ns.L
 
 local sqrt = math.sqrt
 local DB_VERSION = 2
@@ -30,10 +31,10 @@ ns.DEFAULTS = {
 }
 
 BINDING_HEADER_VEINKEEPER = "VeinKeeper"
-BINDING_NAME_VEINKEEPER_NEXT = "Waypoint to the next respawned spot (on a route: skip a stop)"
-BINDING_NAME_VEINKEEPER_ROUTE = "Start / stop a farm route in this zone"
-BINDING_NAME_VEINKEEPER_TOGGLE = "Show / hide all pins"
-BINDING_NAME_VEINKEEPER_SETTINGS = "Open settings"
+BINDING_NAME_VEINKEEPER_NEXT = L["Waypoint to the next respawned spot (on a route: skip a stop)"]
+BINDING_NAME_VEINKEEPER_ROUTE = L["Start / stop a farm route in this zone"]
+BINDING_NAME_VEINKEEPER_TOGGLE = L["Show / hide all pins"]
+BINDING_NAME_VEINKEEPER_SETTINGS = L["Open settings"]
 
 ---------------------------------------------------------------------------
 -- Events: one frame for the whole addon. ns:On("EVENT", fn [, unit]).
@@ -173,17 +174,17 @@ end
 
 function ns:FormatTime(sec)
 	sec = math.floor(sec)
-	if sec < 60 then return sec .. "s" end
-	if sec < 3600 then return math.floor(sec / 60) .. "m" end
-	if sec < 86400 then return ("%dh %dm"):format(sec / 3600, (sec % 3600) / 60) end
-	return math.floor(sec / 86400) .. "d"
+	if sec < 60 then return L["%ds"]:format(sec) end
+	if sec < 3600 then return L["%dm"]:format(sec / 60) end
+	if sec < 86400 then return L["%dh %dm"]:format(sec / 3600, (sec % 3600) / 60) end
+	return L["%dd"]:format(sec / 86400)
 end
 
 function ns:ToggleAllPins()
 	local s = self.db.settings
 	local on = not (s.worldPins or s.minimapPins)
 	s.worldPins, s.minimapPins = on, on
-	self:Print("pins %s.", on and "on" or "off")
+	self:Print(on and L["pins on."] or L["pins off."])
 	self:Changed()
 end
 

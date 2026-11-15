@@ -10,6 +10,7 @@
 --
 -- Cost: a 1 Hz timer while a route runs; nothing otherwise.
 local _, ns = ...
+local L = ns.L
 
 local sqrt, floor, min = math.sqrt, math.floor, math.min
 
@@ -111,9 +112,13 @@ local function Go(spot, soonest)
 	route.target, route.arrived = spot, false
 	ns:SetWaypoint(spot)
 	local d = ns:Distance(spot)
-	ns:Print("route %d/%d: %s%s%s.", IndexOf(spot), #route.stops, ns:DisplayOre(spot),
-		d and (", %d yd"):format(d) or "",
-		soonest and ("; nothing likely back yet, the soonest in %s"):format(ns:FormatTime(soonest)) or "")
+	local ore = ns:NodeLabel(ns:DisplayOre(spot))
+	if d then
+		ns:Print(L["route %d/%d: %s, %d yd."], IndexOf(spot), #route.stops, ore, d)
+	else
+		ns:Print(L["route %d/%d: %s."], IndexOf(spot), #route.stops, ore)
+	end
+	if soonest then ns:Print(L["nothing likely back yet; the soonest is in %s."], ns:FormatTime(soonest)) end
 	ns:Fire("VK_ROUTE")
 end
 
@@ -160,29 +165,34 @@ function ns:StopRoute(quiet)
 	if not route then return end
 	route = nil
 	StopTicker()
-	if not quiet then self:Print("route stopped.") end
+	if not quiet then self:Print(L["route stopped."]) end
 	self:Fire("VK_ROUTE")
 end
 
 function ns:StartRoute()
 	local mapID = C_Map.GetBestMapForUnit("player")
 	local wx, wy, inst = self:PlayerWorld()
-	if not (mapID and wx) then return self:Print("no position here.") end
+	if not (mapID and wx) then return self:Print(L["no position here."]) end
 	local points = {}
 	for _, s in ipairs(self.db.spots) do
 		if Eligible(s, mapID, inst) then points[#points + 1] = s end
 	end
 	if #points < 2 then
-		return self:Print("a route needs 2 or more saved spots you can mine in this zone; it has %d.", #points)
+		return self:Print(L["a route needs 2 or more saved spots you can mine in this zone; it has %d."], #points)
 	end
 	self:StopRoute(true)
 	local stops = OrderLoop(points, wx, wy)
 	route = { map = mapID, inst = inst, stops = stops }
 	local info = C_Map.GetMapInfo(mapID)
 	local only = self.db.settings.only
-	self:Print("route through %d spots%s in %s, %d yd a lap. /vk next skips a stop, /vk route off stops it.",
-		#stops, only and (" of " .. self:OreLabel(only)) or "", info and info.name or "this zone",
-		floor(LoopLength(stops)))
+	local zone, lap = info and info.name or L["this zone"], floor(LoopLength(stops))
+	if only then
+		self:Print(L["route through %d spots of %s in %s, %d yd a lap. /vk next skips a stop, /vk route off stops it."],
+			#stops, self:OreLabel(only), zone, lap)
+	else
+		self:Print(L["route through %d spots in %s, %d yd a lap. /vk next skips a stop, /vk route off stops it."],
+			#stops, zone, lap)
+	end
 	Go(FromHere(1))
 	ticker = C_Timer.NewTicker(TICK, function()
 		if ns.cpu then ns:Timed("route (every 1 s)", Tick) else Tick() end
@@ -230,7 +240,7 @@ ns:On("VK_DATA", function()
 	end
 	if #route.stops < 2 then
 		ns:StopRoute(true)
-		return ns:Print("route stopped: fewer than 2 spots left in it.")
+		return ns:Print(L["route stopped: fewer than 2 spots left in it."])
 	end
 	if lostTarget then
 		route.target = nil
@@ -301,7 +311,7 @@ function provider:RefreshAllData()
 	if not mapID or mapID == 947 or (info and info.mapType and info.mapType <= WORLD) then return end
 	local b = ns:Basis(mapID)
 	if not b or b.inst ~= route.inst then return end
-	local L = Layer(map)
+	local layerFrame = Layer(map)
 	local w, h = map:GetCanvas():GetSize()
 	if not (w and w > 0 and h and h > 0) then return end
 	local stops, n = route.stops, #route.stops
@@ -314,13 +324,13 @@ function provider:RefreshAllData()
 			nLines = nLines + 1
 			local l = lines[nLines]
 			if not l then
-				l = L:CreateLine(nil, "ARTWORK")
+				l = layerFrame:CreateLine(nil, "ARTWORK")
 				lines[nLines] = l
 			end
 			l.next = j == target
 			if l.next then l:SetColorTexture(1, 0.82, 0, 0.95) else l:SetColorTexture(1, 0.82, 0, 0.5) end
-			l:SetStartPoint("TOPLEFT", L, xs[i] * w, -ys[i] * h)
-			l:SetEndPoint("TOPLEFT", L, xs[j] * w, -ys[j] * h)
+			l:SetStartPoint("TOPLEFT", layerFrame, xs[i] * w, -ys[i] * h)
+			l:SetEndPoint("TOPLEFT", layerFrame, xs[j] * w, -ys[j] * h)
 			l:Show()
 		end
 	end

@@ -58,4 +58,14 @@ Open settings with `/vk`, the minimap button, the world map button (top right) o
 | `/vk cpu` | Measure VeinKeeper's CPU use for 30 seconds |
 | `/vk help` | List all commands |
 
+## Translating
+
+VeinKeeper records veins in any client language, and its own text is translated into German, French, Italian, Spanish (esES, esMX), Brazilian Portuguese, Russian, Korean and Chinese (zhCN, zhTW). These are first drafts: if a line reads wrong in your language, fix it in `VeinKeeper/Locales/<code>.lua` and open a pull request. To add a language:
+
+1. `python tools/locales.py new deDE` (your client's `GetLocale()` code: deDE, frFR, esES, esMX, ruRU, ptBR, itIT, koKR, zhCN, zhTW) makes `VeinKeeper/Locales/deDE.lua` with every English text, one per line, commented out.
+2. For each line you translate, remove the `--` and write your text between the quotes. Keep `%s`, `%d`, `%.1f` and `%%` in the same order; a line where they differ isn't used. Lines you leave stay English. Slash commands (`/vk route`...) stay English.
+3. `python tools/locales.py` checks your file. Open a pull request with it.
+
+When the English text changes, `python tools/locales.py update` adds the new text to every locale file and keeps the translations. Vein names show in your language once you've mined each kind, as the game names them.
+
 See the [changelog](CHANGELOG.md) for what's new.

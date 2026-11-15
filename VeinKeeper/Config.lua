@@ -1,6 +1,7 @@
 -- Settings window (/vk, the minimap button or the world map button) and the
 -- ore filter menu. Built on first open; costs nothing until then.
 local _, ns = ...
+local L = ns.L
 
 local floor = math.floor
 local WIDTH, HEIGHT = 600, 418
@@ -66,7 +67,8 @@ local function Check(x, y, label, key, tip, onChange)
 	controls[#controls + 1] = cb
 end
 
--- scale: the stored setting is the slider value / scale (100 for percentages)
+-- unit: a format for the value ("%d px"). scale: the stored setting is the
+-- slider value / scale (100 for percentages)
 local function Slider(x, y, label, key, minV, maxV, step, unit, scale)
 	scale = scale or 1
 	local name = NextName("Slider")
@@ -89,7 +91,7 @@ local function Slider(x, y, label, key, minV, maxV, step, unit, scale)
 
 	sl:SetScript("OnValueChanged", function(self, v)
 		v = floor(v / step + 0.5) * step
-		value:SetText(v .. unit)
+		value:SetText(unit:format(v))
 		if self.refreshing then return end
 		ns.db.settings[key] = v / scale
 		ns:Restyle()
@@ -98,7 +100,7 @@ local function Slider(x, y, label, key, minV, maxV, step, unit, scale)
 		sl.refreshing = true
 		local v = floor(ns.db.settings[key] * scale + 0.5)
 		sl:SetValue(v)
-		value:SetText(v .. unit)
+		value:SetText(unit:format(v))
 		sl.refreshing = false
 	end
 	controls[#controls + 1] = sl
@@ -126,19 +128,19 @@ local dropDown
 local function MenuEntries(withMapItems)
 	local s = ns.db.settings
 	local function set(key) s.only = key ns:Changed() end
-	local list = { { text = "All ores", checked = function() return not s.only end, func = function() set(false) end } }
+	local list = { { text = L["All ores"], checked = function() return not s.only end, func = function() set(false) end } }
 	for _, c in ipairs(ns:FilterChoices()) do
 		list[#list + 1] = { text = c.label, checked = function() return s.only == c.key end, func = function() set(c.key) end }
 	end
 	if withMapItems then
 		list[#list + 1] = { divider = true }
-		list[#list + 1] = { text = s.worldPins and "Hide map pins" or "Show map pins", func = function()
+		list[#list + 1] = { text = s.worldPins and L["Hide map pins"] or L["Show map pins"], func = function()
 			s.worldPins = not s.worldPins
 			ns:Changed()
 		end }
-		list[#list + 1] = { text = ns:RouteActive() and "Stop farm route" or "Farm route in my zone",
+		list[#list + 1] = { text = ns:RouteActive() and L["Stop farm route"] or L["Farm route in my zone"],
 			func = function() ns:ToggleRoute() end }
-		list[#list + 1] = { text = "Settings", func = function() ns:ToggleSettings() end }
+		list[#list + 1] = { text = L["Settings"], func = function() ns:ToggleSettings() end }
 	end
 	return list
 end
@@ -147,7 +149,7 @@ function ns:ShowFilterMenu(owner, withMapItems)
 	local entries = MenuEntries(withMapItems)
 	if MenuUtil and MenuUtil.CreateContextMenu then
 		MenuUtil.CreateContextMenu(owner, function(_, root)
-			root:CreateTitle("Show ore")
+			root:CreateTitle(L["Show ore"])
 			for _, e in ipairs(entries) do
 				if e.divider then
 					root:CreateDivider()
@@ -162,7 +164,7 @@ function ns:ShowFilterMenu(owner, withMapItems)
 		dropDown = dropDown or CreateFrame("Frame", "VeinKeeperFilterMenu", UIParent, "UIDropDownMenuTemplate")
 		UIDropDownMenu_Initialize(dropDown, function(_, level)
 			local info = UIDropDownMenu_CreateInfo()
-			info.text, info.isTitle, info.notCheckable = "Show ore", true, true
+			info.text, info.isTitle, info.notCheckable = L["Show ore"], true, true
 			UIDropDownMenu_AddButton(info, level)
 			for _, e in ipairs(entries) do
 				if not e.divider then
@@ -181,7 +183,7 @@ end
 -- Panel
 ---------------------------------------------------------------------------
 local IN_RANGE = { "ring", "hide", "icon" }
-local IN_RANGE_LABEL = { ring = "Hollow ring", hide = "Hidden", icon = "Full icon" }
+local IN_RANGE_LABEL = { ring = L["Hollow ring"], hide = L["Hidden"], icon = L["Full icon"] }
 
 local function CyclePinsInView()
 	local s = ns.db.settings
@@ -215,55 +217,56 @@ local function CreatePanel()
 	title:SetText("VeinKeeper")
 
 	-- left: what pins look like
-	Header(LEFT, -36, "Pins")
-	Check(LEFT, -56, "World map pins", "worldPins")
-	Check(LEFT, -80, "Minimap pins", "minimapPins")
-	Check(LEFT, -104, "Game ore icons", "gameIcons",
-		"Off: VeinKeeper's own drawn icons. Season of Discovery quest nodes always use drawn icons.")
-	Check(LEFT, -128, "Dim spots above my Mining skill", "skillDim")
-	Slider(LEFT, -162, "World map opacity", "worldAlpha", 10, 100, 5, "%", 100)
-	Slider(LEFT, -204, "Minimap opacity", "minimapAlpha", 10, 100, 5, "%", 100)
-	Slider(LEFT, -246, "World map icon size", "worldSize", 8, 32, 1, " px")
-	Slider(LEFT, -288, "Minimap icon size", "minimapSize", 8, 24, 1, " px")
+	Header(LEFT, -36, L["Pins"])
+	Check(LEFT, -56, L["World map pins"], "worldPins")
+	Check(LEFT, -80, L["Minimap pins"], "minimapPins")
+	Check(LEFT, -104, L["Game ore icons"], "gameIcons",
+		L["Off: VeinKeeper's own drawn icons. Season of Discovery quest nodes always use drawn icons."])
+	Check(LEFT, -128, L["Dim spots above my Mining skill"], "skillDim")
+	Slider(LEFT, -162, L["World map opacity"], "worldAlpha", 10, 100, 5, L["%d%%"], 100)
+	Slider(LEFT, -204, L["Minimap opacity"], "minimapAlpha", 10, 100, 5, L["%d%%"], 100)
+	Slider(LEFT, -246, L["World map icon size"], "worldSize", 8, 32, 1, L["%d px"])
+	Slider(LEFT, -288, L["Minimap icon size"], "minimapSize", 8, 24, 1, L["%d px"])
 
 	-- right: respawns and the minimap
-	Header(RIGHT, -36, "Respawns & minimap")
-	Slider(RIGHT, -60, "Respawn until learned", "readyMin", 1, 60, 1, " min")
-	Slider(RIGHT, -102, "Far spots on the minimap rim", "edgeCount", 0, 10, 1, "")
-	Slider(RIGHT, -144, "Rim: hide spots further than", "edgeMaxYards", 100, 2500, 50, " yd")
-	Check(RIGHT, -186, "Rim: only spots likely back", "edgeReadyOnly")
-	Check(RIGHT, -210, "Save veins hovered on the minimap", "recordSeen",
-		"With Find Minerals on, hovering a vein's yellow dot on the minimap saves it (blue ring) or marks a known spot as up.")
-	Choice(RIGHT, -244, "Spots in view with Find Minerals:", 100,
+	Header(RIGHT, -36, L["Respawns & minimap"])
+	Slider(RIGHT, -60, L["Respawn until learned"], "readyMin", 1, 60, 1, L["%d min"])
+	Slider(RIGHT, -102, L["Far spots on the minimap rim"], "edgeCount", 0, 10, 1, "%d")
+	Slider(RIGHT, -144, L["Rim: hide spots further than"], "edgeMaxYards", 100, 2500, 50, L["%d yd"])
+	Check(RIGHT, -186, L["Rim: only spots likely back"], "edgeReadyOnly")
+	Check(RIGHT, -210, L["Save veins hovered on the minimap"], "recordSeen",
+		L["With Find Minerals on, hovering a vein's yellow dot on the minimap saves it (blue ring) or marks a known spot as up."])
+	Choice(RIGHT, -244, L["Spots in view with Find Minerals:"], 100,
 		function() return IN_RANGE_LABEL[ns.db.settings.inRange] end, CyclePinsInView,
-		"Addons can't see tracking dots. Hollow ring: the game's yellow dot shows inside the ring when the vein is up.")
-	Choice(RIGHT, -274, "Show only this ore:", 120,
-		function() local only = ns.db.settings.only return only and ns:OreLabel(only) or "All ores" end,
+		L["Addons can't see tracking dots. Hollow ring: the game's yellow dot shows inside the ring when the vein is up."])
+	Choice(RIGHT, -274, L["Show only this ore:"], 120,
+		function() local only = ns.db.settings.only return only and ns:OreLabel(only) or L["All ores"] end,
 		function(self) ns:ShowFilterMenu(self) end)
 
 	-- bottom: buttons
-	Header(LEFT, -332, "Buttons")
+	Header(LEFT, -332, L["Buttons"])
 	Header(RIGHT, -332, " ")
-	Check(LEFT, -352, "Minimap button", "button", nil, function() ns:UpdateMinimapButton() end)
-	Check(RIGHT, -352, "World map button", "mapButton", nil, function() ns:UpdateMapButton() end)
+	Check(LEFT, -352, L["Minimap button"], "button", nil, function() ns:UpdateMinimapButton() end)
+	Check(RIGHT, -352, L["World map button"], "mapButton", nil, function() ns:UpdateMapButton() end)
 
 	local import = CreateFrame("Button", NextName("Button"), panel, "UIPanelButtonTemplate")
 	import:SetSize(80, 22)
 	import:SetPoint("BOTTOMRIGHT", -16, 10)
-	import:SetText("Import")
+	import:SetText(L["Import"])
 	import:SetScript("OnClick", function() ns:ShowImport() end)
-	AddTooltip(import, "Import spots", "Merge spots someone exported into yours. Your own spots and timers are kept.")
+	AddTooltip(import, L["Import spots"], L["Merge spots someone exported into yours. Your own spots and timers are kept."])
 	local export = CreateFrame("Button", NextName("Button"), panel, "UIPanelButtonTemplate")
 	export:SetSize(80, 22)
 	export:SetPoint("RIGHT", import, "LEFT", -6, 0)
-	export:SetText("Export")
+	export:SetText(L["Export"])
 	export:SetScript("OnClick", function() ns:ShowExport() end)
-	AddTooltip(export, "Export spots", "Your spots (those shown, with the ore filter) as text to copy and share. /vk export zone: this zone only.")
+	AddTooltip(export, L["Export spots"],
+		L["Your spots (those shown, with the ore filter) as text to copy and share. /vk export zone: this zone only."])
 
 	local footer = panel:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
 	footer:SetPoint("BOTTOMLEFT", LEFT + 2, 12)
 	controls[#controls + 1] = {
-		Refresh = function() footer:SetText(#ns.db.spots .. " spots saved   /vk help for commands") end,
+		Refresh = function() footer:SetText(L["%d spots saved   /vk help for commands"]:format(#ns.db.spots)) end,
 	}
 end
 

@@ -8,6 +8,18 @@
 ## AddonCompartmentFuncOnEnter: VeinKeeper_OnCompartmentEnter
 ## AddonCompartmentFuncOnLeave: VeinKeeper_OnCompartmentLeave
 
+Locales\Locale.lua
+Locales\deDE.lua
+Locales\esES.lua
+Locales\esMX.lua
+Locales\frFR.lua
+Locales\itIT.lua
+Locales\koKR.lua
+Locales\ptBR.lua
+Locales\ruRU.lua
+Locales\zhCN.lua
+Locales\zhTW.lua
+Locales\Check.lua
 Core.lua
 Data.lua
 Spots.lua

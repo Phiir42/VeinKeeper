@@ -1,6 +1,7 @@
 -- Buttons: the minimap button, the world map button and the addon
 -- compartment entry (the minimap's addon list, which EllesmereUI also shows).
 local _, ns = ...
+local L = ns.L
 
 local function RoundButton(name, parent)
 	local b = CreateFrame("Button", name, parent)
@@ -27,11 +28,11 @@ end
 local function Tooltip(owner, rightClick, extra)
 	GameTooltip:SetOwner(owner, "ANCHOR_LEFT")
 	GameTooltip:AddLine("VeinKeeper")
-	GameTooltip:AddLine(#ns.db.spots .. " spots saved", 1, 1, 1)
+	GameTooltip:AddLine(L["%d spots saved"]:format(#ns.db.spots), 1, 1, 1)
 	local only = ns.db.settings.only
-	if only then GameTooltip:AddLine("Showing only " .. ns:OreLabel(only), 1, 0.82, 0) end
-	GameTooltip:AddLine("Left-click: settings", 0.7, 0.7, 0.7)
-	GameTooltip:AddLine("Right-click: " .. rightClick, 0.7, 0.7, 0.7)
+	if only then GameTooltip:AddLine(L["Showing only %s"]:format(ns:OreLabel(only)), 1, 0.82, 0) end
+	GameTooltip:AddLine(L["Left-click: settings"], 0.7, 0.7, 0.7)
+	GameTooltip:AddLine(L["Right-click: %s"]:format(rightClick), 0.7, 0.7, 0.7)
 	if extra then GameTooltip:AddLine(extra, 0.7, 0.7, 0.7) end
 	GameTooltip:Show()
 end
@@ -74,7 +75,7 @@ local function CreateMinimapButton()
 		if button == "RightButton" then ns:ToggleAllPins() else ns:ToggleSettings() end
 	end)
 	b:SetScript("OnEnter", function(self)
-		Tooltip(self, "show / hide all pins", OwnedByMinimap() and "Drag: move" or nil)
+		Tooltip(self, L["show / hide all pins"], OwnedByMinimap() and L["Drag: move"] or nil)
 	end)
 	b:SetScript("OnDragStart", function(self)
 		if OwnedByMinimap() then self:SetScript("OnUpdate", DragUpdate) end
@@ -115,7 +116,7 @@ local function CreateMapButton()
 			ns:ToggleSettings()
 		end
 	end)
-	b:SetScript("OnEnter", function(self) Tooltip(self, "ore filter, show / hide pins") end)
+	b:SetScript("OnEnter", function(self) Tooltip(self, L["ore filter, show / hide pins"]) end)
 end
 
 function ns:UpdateMapButton()
@@ -141,7 +142,7 @@ end
 
 function VeinKeeper_OnCompartmentEnter(addonOrFrame, frame)
 	local owner = type(addonOrFrame) == "table" and addonOrFrame or frame
-	if type(owner) == "table" then Tooltip(owner, "show / hide all pins") end
+	if type(owner) == "table" then Tooltip(owner, L["show / hide all pins"]) end
 end
 
 function VeinKeeper_OnCompartmentLeave()

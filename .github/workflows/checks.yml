@@ -45,5 +45,10 @@ jobs:
       - name: Yield
         run: python tools/test_yield.py
 
+      - name: Translations
+        run: |
+          python tools/locales.py
+          python tools/test_locales.py
+
       - name: Spatial index
         run: python tools/test_index.py

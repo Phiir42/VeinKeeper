@@ -14,6 +14,7 @@
 -- yards (1-35), ores as the node's first object ID in Data.lua (the same in
 -- every client language). The checksum (Adler-32) catches cut-off pastes.
 local _, ns = ...
+local L = ns.L
 
 local floor, max, min = math.floor, math.max, math.min
 local byte, sub = string.byte, string.sub
@@ -95,9 +96,9 @@ end
 function ns:Decode(text)
 	text = (text or ""):gsub("%s", "")
 	local version, sum, payload = text:match("^(VK%d+):(%w+):(.*)$")
-	if not version then return nil, "that isn't a VeinKeeper export" end
-	if version ~= PREFIX then return nil, "it's from a newer VeinKeeper (" .. version .. "); update to import it" end
-	if Checksum(payload) ~= sum then return nil, "it's incomplete or changed (copy the whole text again)" end
+	if not version then return nil, L["that isn't a VeinKeeper export"] end
+	if version ~= PREFIX then return nil, L["it's from a newer VeinKeeper (%s); update to import it"]:format(version) end
+	if Checksum(payload) ~= sum then return nil, L["it's incomplete or changed (copy the whole text again)"] end
 	local list, bad = {}, 0
 	for mapCode, spots in payload:gmatch("@(%w+):([^@]*)") do
 		local map = tonumber(mapCode, 36)
@@ -119,14 +120,14 @@ function ns:Decode(text)
 			end
 		end
 	end
-	if #list == 0 then return nil, "it has no spots this client knows" end
+	if #list == 0 then return nil, L["it has no spots this client knows"] end
 	return list, bad
 end
 
 -- Merges a decoded list, BATCH spots a frame; done(new, known, ignored) after.
 local importing
 function ns:Import(list, done)
-	if importing then return self:Print("still importing the last one.") end
+	if importing then return self:Print(L["still importing the last one."]) end
 	importing = true
 	local now, i, new, known, ignored = time(), 0, 0, 0, 0
 	local function Step()
@@ -213,23 +214,30 @@ end
 
 function ns:ShowExport(zoneOnly)
 	local mapID = zoneOnly and C_Map.GetBestMapForUnit("player")
-	if zoneOnly and not mapID then return self:Print("no zone here.") end
+	if zoneOnly and not mapID then return self:Print(L["no zone here."]) end
 	local text, n = self:Export(function(s)
 		return self:IsShown(s) and (not mapID or s.map == mapID)
 	end)
-	if n == 0 then return self:Print("no spots to export%s.", mapID and " in this zone" or "") end
+	if n == 0 then return self:Print(mapID and L["no spots to export in this zone."] or L["no spots to export."]) end
 	local w = Window()
 	local only = self.db.settings.only
-	w.title:SetText("VeinKeeper: export")
-	w.hint:SetText("Press Ctrl+C to copy, then paste it anywhere. Others import it with /vk import.")
-	w.status:SetText(("%d spots%s%s, %d characters"):format(n, only and (" of " .. self:OreLabel(only)) or "",
-		mapID and " in this zone" or "", #text))
+	w.title:SetText(L["VeinKeeper: export"])
+	w.hint:SetText(L["Press Ctrl+C to copy, then paste it anywhere. Others import it with /vk import."])
+	if only and mapID then
+		w.status:SetText(L["%d spots of %s in this zone, %d characters"]:format(n, self:OreLabel(only), #text))
+	elseif only then
+		w.status:SetText(L["%d spots of %s, %d characters"]:format(n, self:OreLabel(only), #text))
+	elseif mapID then
+		w.status:SetText(L["%d spots in this zone, %d characters"]:format(n, #text))
+	else
+		w.status:SetText(L["%d spots, %d characters"]:format(n, #text))
+	end
 	w.edit:SetScript("OnTextChanged", function(edit, user)
 		if user then edit:SetText(text) edit:HighlightText() end -- read-only
 	end)
 	w.edit:SetScript("OnEditFocusGained", function(edit) edit:HighlightText() end)
 	w.edit:SetText(text)
-	w.button:SetText(CLOSE or "Close")
+	w.button:SetText(CLOSE or L["Close"])
 	w.button:SetScript("OnClick", function() w:Hide() end)
 	w:Show()
 	w.edit:SetFocus()
@@ -238,27 +246,31 @@ end
 
 function ns:ShowImport()
 	local w = Window()
-	w.title:SetText("VeinKeeper: import")
-	w.hint:SetText("Paste a VeinKeeper export (Ctrl+V), then press Import.")
-	w.status:SetText("Your own spots and timers are kept; new spots show as blue rings.")
+	w.title:SetText(L["VeinKeeper: import"])
+	w.hint:SetText(L["Paste a VeinKeeper export (Ctrl+V), then press Import."])
+	w.status:SetText(L["Your own spots and timers are kept; new spots show as blue rings."])
 	w.edit:SetScript("OnTextChanged", nil)
 	w.edit:SetScript("OnEditFocusGained", nil)
 	w.edit:SetText("")
-	w.button:SetText("Import")
+	w.button:SetText(L["Import"])
 	w.button:SetScript("OnClick", function()
 		local list, why = self:Decode(w.edit:GetText())
 		if not list then
-			w.status:SetText("|cffff6060Can't import: " .. why .. ".|r")
+			w.status:SetText("|cffff6060" .. L["Can't import: %s."]:format(why) .. "|r")
 			return
 		end
 		local bad = why
-		w.status:SetText(("Importing %d spots..."):format(#list))
+		w.status:SetText(L["Importing %d spots..."]:format(#list))
 		self:Import(list, function(new, known, ignored)
 			local extra = {}
-			if known > 0 then extra[#extra + 1] = known .. " you already had" end
-			if ignored > 0 then extra[#extra + 1] = ignored .. " of ignored ores" end
-			if bad > 0 then extra[#extra + 1] = bad .. " unreadable" end
-			self:Print("imported %d new spots%s.", new, #extra > 0 and (" (" .. table.concat(extra, ", ") .. ")") or "")
+			if known > 0 then extra[#extra + 1] = L["%d you already had"]:format(known) end
+			if ignored > 0 then extra[#extra + 1] = L["%d of ignored ores"]:format(ignored) end
+			if bad > 0 then extra[#extra + 1] = L["%d unreadable"]:format(bad) end
+			if #extra > 0 then
+				self:Print(L["imported %d new spots (%s)."], new, table.concat(extra, ", "))
+			else
+				self:Print(L["imported %d new spots."], new)
+			end
 			w:Hide()
 		end)
 	end)

@@ -9,6 +9,7 @@
 -- any client language), and a visit by that GUID: a vein keeps its GUID
 -- until it despawns, and a respawned one has a new one.
 local _, ns = ...
+local L = ns.L
 
 local floor, max = math.floor, math.max
 
@@ -111,14 +112,18 @@ function ns:YieldText(name)
 	local item = MainItem(name, y)
 	local e = item and y.i[item]
 	if not e then return end
-	return ("%.1f %s a visit (%d visits)"):format(e[1] / y.v, ItemName(item), y.v)
+	return L["%.1f %s a visit (%d visits)"]:format(e[1] / y.v, ItemName(item), y.v)
 end
 
 -- One item's line: an amount a visit if it nearly always drops, else a chance.
 local function ItemPart(id, e, v)
 	local share = e[2] / v
-	if share >= SURE then return ("%.1f %s"):format(e[1] / v, ItemName(id)) end
-	return ("%s %d%%"):format(ItemName(id), floor(share * 100 + 0.5))
+	if share >= SURE then return L["%.1f %s"]:format(e[1] / v, ItemName(id)) end
+	return L["%s %d%%"]:format(ItemName(id), floor(share * 100 + 0.5))
+end
+
+local function Visits(n)
+	return n == 1 and L["1 visit"] or L["%d visits"]:format(n)
 end
 
 function ns:PrintYield()
@@ -127,14 +132,14 @@ function ns:PrintYield()
 		if y.v > 0 then names[#names + 1] = name end
 	end
 	if #names == 0 then
-		return self:Print("no yield yet: mine a vein and its loot is counted from then on.")
+		return self:Print(L["no yield yet: mine a vein and its loot is counted from then on."])
 	end
 	table.sort(names, function(a, b)
 		local sa, sb = self:NodeInfo(a).skill or 0, self:NodeInfo(b).skill or 0
 		if sa ~= sb then return sa < sb end
 		return a < b
 	end)
-	self:Print("average loot a visit:")
+	self:Print(L["average loot a visit:"])
 	for _, name in ipairs(names) do
 		local y = self.db.yield[name]
 		local ids = {}
@@ -149,8 +154,8 @@ function ns:PrintYield()
 		local parts = {}
 		for _, id in ipairs(ids) do parts[#parts + 1] = ItemPart(id, y.i[id], y.v) end
 		local c = self:NodeInfo(name).color
-		print(("  |cff%02x%02x%02x%s|r (%d %s): %s"):format(floor(c[1] * 255), floor(c[2] * 255), floor(c[3] * 255), name, y.v,
-			y.v == 1 and "visit" or "visits", table.concat(parts, ", ")))
+		print(("  |cff%02x%02x%02x%s|r (%s): %s"):format(floor(c[1] * 255), floor(c[2] * 255), floor(c[3] * 255),
+			self:NodeLabel(name), Visits(y.v), table.concat(parts, ", ")))
 	end
 	if session.start then
 		local elapsed = time() - session.start
@@ -160,24 +165,26 @@ function ns:PrintYield()
 		local parts = {}
 		for i = 1, math.min(3, #ids) do parts[i] = session.items[ids[i]] .. " " .. ItemName(ids[i]) end
 		-- an hour's worth of the ore you got most of
-		local rate, ore = "", nil
+		local ore
 		for _, id in ipairs(ids) do
 			if self:IsOre(id) then ore = id break end
 		end
+		local took, got = self:FormatTime(max(elapsed, 1)), table.concat(parts, ", ")
 		if elapsed >= MIN_SESSION_SEC and ore then
-			rate = (", ~%d %s an hour"):format(floor(session.items[ore] * 3600 / elapsed + 0.5), ItemName(ore))
+			print("  " .. L["this session: %s in %s: %s, ~%d %s an hour"]:format(Visits(session.visits), took, got,
+				floor(session.items[ore] * 3600 / elapsed + 0.5), ItemName(ore)))
+		else
+			print("  " .. L["this session: %s in %s: %s"]:format(Visits(session.visits), took, got))
 		end
-		print(("  this session: %d %s in %s: %s%s"):format(session.visits, session.visits == 1 and "visit" or "visits",
-			self:FormatTime(max(elapsed, 1)), table.concat(parts, ", "), rate))
 	end
 end
 
 StaticPopupDialogs.VEINKEEPER_YIELD_RESET = {
-	text = "Forget all VeinKeeper yield counts?",
+	text = L["Forget all VeinKeeper yield counts?"],
 	button1 = YES, button2 = NO,
 	OnAccept = function()
 		wipe(ns.db.yield)
-		ns:Print("yield counts cleared.")
+		ns:Print(L["yield counts cleared."])
 	end,
 	timeout = 0, whileDead = true, hideOnEscape = true,
 }

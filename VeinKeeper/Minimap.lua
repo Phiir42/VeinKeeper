@@ -7,6 +7,7 @@
 -- after moving RESCAN_YARDS or a data change; pins are only restyled when
 -- their spot or the style version changes.
 local _, ns = ...
+local L = ns.L
 
 local sqrt, abs, cos, sin, floor, min, max = math.sqrt, math.abs, math.cos, math.sin, math.floor, math.min, math.max
 
@@ -131,7 +132,7 @@ local function Place(i, spot, x, y, ringOnly, dist)
 	end
 	local yd = dist and floor(dist)
 	if p.yd ~= yd then
-		p.label:SetText(yd and yd .. " yd" or "")
+		p.label:SetText(yd and L["%d yd"]:format(yd) or "")
 		p.yd = yd
 	end
 	if not p:IsShown() then p:Show() end
