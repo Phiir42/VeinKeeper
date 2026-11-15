@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.12
 
 **New**
 - Yield tracking: the loot of every vein you mine is counted per vein type (every tap of a multi-tap vein is one visit). Pin tooltips show the average ore a visit, such as "4.5 Thorium Ore a visit (14 visits)", once a type has 3 visits. `/vk yield` lists each type's ore, stone and gems (an amount a visit for what nearly always drops, a chance for the rest) and this session's haul with ore an hour. `/vk yield reset` starts the counts over.
