@@ -37,6 +37,7 @@ local function Help()
 		{ "/vk map | minimap | icons | skill | seen | button", L["toggle a setting"] },
 		{ "/vk ready <minutes> | edge <0-10>", L["respawn until learned, rim pin count"] },
 		{ "/vk respawn", L["learned respawn times per ore"] },
+		{ "/vk pool | pool reset", L["what you find at saved spots: do veins come back where they were?"] },
 		{ "/vk yield | yield reset", L["average loot a visit per vein type, and this session's"] },
 		{ "/vk inrange ring | hide | icon", L["spots in view with Find Minerals on"] },
 		{ "/vk prune [days]", L["delete single-visit spots older than [30] days"] },
@@ -197,6 +198,8 @@ SlashCmdList.VEINKEEPER = function(msg)
 		Near()
 	elseif cmd == "yield" then
 		if arg == "reset" then StaticPopup_Show("VEINKEEPER_YIELD_RESET") else ns:PrintYield() end
+	elseif cmd == "pool" then
+		if arg == "reset" then StaticPopup_Show("VEINKEEPER_POOL_RESET") else ns:PrintPool() end
 	elseif cmd == "respawn" then
 		Respawns()
 	elseif cmd == "only" and arg ~= "" then

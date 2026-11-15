@@ -13,7 +13,7 @@ import sandbox
 TOOL = os.path.join(sandbox.ROOT, "tools", "locales.py")
 LOC = os.path.join(sandbox.ADDON, "Locales", "qqQQ.lua")
 TOC = os.path.join(sandbox.ADDON, "VeinKeeper.toc")
-FILES = ["Core.lua", "Data.lua", "Spots.lua", "Pins.lua", "Share.lua", "Yield.lua", "Route.lua", "Commands.lua"]
+FILES = sandbox.addon_files()
 
 
 def tool(*args):
@@ -97,7 +97,7 @@ def main():
         out = [m for m in G.printed.values()]
         english = [m for m in out if "spots saved. Commands" in m or "route through" in m]
         check(ok and n >= 180 and not english,
-              "%s: %d texts; help, tooltip, route, export, yield and settings run%s" % (code, n, (": " + err) if err else ""))
+              "%s: %d texts; help, tooltip, route, export, yield, pool and settings run%s" % (code, n, (": " + err) if err else ""))
     check.finish()
 
 
@@ -123,6 +123,9 @@ SlashCmdList.VEINKEEPER('route off')
 SlashCmdList.VEINKEEPER('near')
 SlashCmdList.VEINKEEPER('respawn')
 SlashCmdList.VEINKEEPER('yield')
+ns.db.visits = { ['Copper Vein'] = { 12, 20, 3, 10 } }
+SlashCmdList.VEINKEEPER('pool')
+ns:ShowTooltip({}, ns.db.spots[1])
 SlashCmdList.VEINKEEPER('only copper')
 SlashCmdList.VEINKEEPER('only all')
 SlashCmdList.VEINKEEPER('ignore Tin Vein')

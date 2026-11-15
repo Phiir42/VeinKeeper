@@ -41,7 +41,8 @@ read_globals = {
 	"GetPlayerFacing", "GetSkillLineInfo",
 	"GetSpellInfo", "GetSpellTexture", "GetTime", "GetTrackingTexture", "IsIndoors", "IsShiftKeyDown",
 	"issecretvalue", "StaticPopup_Show", "time", "tinsert", "ToggleDropDownMenu", "UIDropDownMenu_AddButton",
-	"UIDropDownMenu_CreateInfo", "UIDropDownMenu_Initialize", "UnitGUID", "UnitOnTaxi", "wipe",
+	"UIDropDownMenu_CreateInfo", "UIDropDownMenu_Initialize", "UnitAffectingCombat", "UnitGUID",
+	"UnitIsDeadOrGhost", "UnitOnTaxi", "wipe",
 	-- frames, mixins and objects
 	"ChatFontNormal", "DEFAULT_CHAT_FRAME", "GameTooltip", "GameTooltipTextLeft1", "MapCanvasDataProviderMixin",
 	"MapCanvasPinMixin", "MenuUtil", "Minimap", "UIParent", "UiMapPoint", "WorldMapFrame",

@@ -123,6 +123,10 @@ function ns:ShowTooltip(owner, spot, nearby, noClick)
 			n > 0 and L["~%s (learned, %d)"]:format(self:FormatTime(sec), n) or L["~%s (setting)"]:format(self:FormatTime(sec)),
 			1, 1, 1, GREY, GREY, GREY)
 	end
+	local chance, visits = self:UpChance(spot)
+	if chance then
+		tt:AddDoubleLine(L["Chance it's up"], L["~%d%% (%d visits)"]:format(chance, visits), 1, 1, 1, r, g, b)
+	end
 	local yield = self:YieldText(ore)
 	if yield then tt:AddDoubleLine(L["Yield"], yield, 1, 1, 1, GREY, GREY, GREY) end
 	if spot.minGap then

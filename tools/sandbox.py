@@ -98,6 +98,18 @@ Minimap = Obj()
 
 
 
+# files that build frames the stubs can't stand in for
+UI_ONLY = {"WorldMap.lua", "Minimap.lua", "Buttons.lua", "Config.lua"}
+
+
+def addon_files():
+    """The addon's Lua files in the .toc's order, without the locale files
+    (load() adds those) and without UI_ONLY."""
+    with open(os.path.join(ADDON, "VeinKeeper.toc"), encoding="utf-8") as fh:
+        files = [l.strip() for l in fh if l.strip().endswith(".lua") and not l.startswith("#")]
+    return [f for f in files if not f.lower().startswith("locales\\") and f not in UI_ONLY]
+
+
 def locale_files():
     """The Locales\\ files the .toc loads, in its order."""
     with open(os.path.join(ADDON, "VeinKeeper.toc"), encoding="utf-8") as fh:

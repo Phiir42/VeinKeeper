@@ -45,6 +45,9 @@ jobs:
       - name: Respawn learning
         run: python tools/test_respawn.py
 
+      - name: Visits
+        run: python tools/test_pool.py
+
       - name: Yield
         run: python tools/test_yield.py
 

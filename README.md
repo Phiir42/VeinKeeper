@@ -32,6 +32,7 @@ A lightweight World of Warcraft: Forever addon that remembers every ore vein you
 - Ore filter: show just one ore, all its vein types together. Use the world map button's right-click menu, the settings window, or `/vk only thorium`.
 - Share spots: `/vk export` (or Export in the settings window) gives your spots as text to copy into Discord or a forum post; `/vk import` merges someone's text into yours. Only positions and ores travel, never your timers. New spots arrive as blue rings and become yours once you mine them; `/vk clear imported` removes the ones you never visited.
 - Yield: the loot of every vein you mine is counted per vein type. Tooltips show the average ore a visit once a type has 3 visits; `/vk yield` lists everything each type gives (stone and gems as a chance a visit) and this session's haul with ore an hour.
+- Do veins come back where they were? Each time you pass within 12 yd of a saved spot, VeinKeeper notes whether it was likely back and whether you found a vein. `/vk pool` shows the hit rates and what they say about how the server respawns veins, and tooltips show the measured chance a vein is there now.
 - `/vk prune [days]`: delete spots visited only once and not seen for 30 days (or `[days]`).
 
 **Light on your game:** no work while you stand still, nothing while the world map is closed, and no libraries.
@@ -47,6 +48,7 @@ Open settings with `/vk`, the minimap button, the world map button (top right) o
 | `/vk export [zone]` | Your spots (those shown, or this zone's) as text to share |
 | `/vk import` | Merge someone's export into your spots |
 | `/vk respawn` | Learned respawn times, one line per group of vein types sharing spawn points |
+| `/vk pool` / `pool reset` | What you found at saved spots: do veins come back where they were? |
 | `/vk yield` / `yield reset` | Average loot a visit per vein type, and this session's |
 | `/vk near` | List the closest spots |
 | `/vk only <ore>` | Show one ore only (`/vk only all` to reset) |

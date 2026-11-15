@@ -8,7 +8,7 @@ import re
 
 import sandbox
 
-FILES = ["Core.lua", "Data.lua", "Spots.lua", "Pins.lua", "Yield.lua", "Route.lua", "Commands.lua"]
+FILES = sandbox.addon_files()
 
 LOOT = """
 now = 100

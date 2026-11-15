@@ -29,6 +29,7 @@ Yield.lua
 WorldMap.lua
 WorldMap.xml
 Route.lua
+Pool.lua
 Minimap.lua
 Buttons.lua
 Config.lua
