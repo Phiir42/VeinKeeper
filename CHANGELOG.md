@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.11
 
 **Performance**
 - Much faster with many saved spots: finding the spots near a vein (when mining, hovering a minimap dot, importing, and tidying duplicates at login) only looks at the saved spots in the surrounding 240 yd square instead of every one. With 6,000 spots, the login tidy-up takes about 1/45th of the time and importing 3,000 spots about 1/40th. Results are exactly as before.
