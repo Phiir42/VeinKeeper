@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.10
 
 **New**
 - Share spots: `/vk export` (or Export in the settings window) shows your spots as a text string to copy; `/vk export zone` only this zone's. It follows the ore filter and ignore list. `/vk import` (or Import) merges someone's string into your spots. Only positions and ores travel: your own spots, mining times and learned respawns stay as they are, and a vein you already have just gains any ore it lacked. New spots show as blue rings, "Imported" in their tooltip, until you mine or see them.
