@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+**Changed**
+- Respawn times are learned faster for vein types that share spawn points, such as Tin and Silver or Mithril and Truesilver: their samples are pooled, since a spawn point has one timer whatever spawns there. Types count as sharing once you've seen them together at two or more spots. `/vk respawn` lists each group on one line.
+
 ## 1.2.13
 
 **New**

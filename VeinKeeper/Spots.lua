@@ -188,10 +188,69 @@ function ns:SeenUp(spot) return SeenUp(spot) end
 -- the last RESPAWN_KEEP per ore are kept (VeinKeeperDB.respawn[ore]), and
 -- the estimate is their lower quartile: near the true time, not the
 -- occasional hours-later return. Until RESPAWN_MIN_N are in, the
--- "Likely back after" setting is used.
+-- "Respawn until learned" setting is used.
+--
+-- Vein types that share spawn points (Tin and Silver, Mithril and
+-- Truesilver...) share the point's timer, so their samples are pooled: the
+-- estimate for one comes from all the types in its group. Two types are in
+-- one group once they've been seen together at SHARED_MIN spots; a single
+-- spot can be two neighbouring veins saved as one.
 local RESPAWN_KEEP, RESPAWN_MIN_N = 24, 3
 local RESPAWN_MAX_SEC = 6 * 3600 -- longer gaps say nothing useful
-local respawnCache = {} -- ore -> seconds or false, cleared on each new sample
+local SHARED_MIN = 2
+local respawnCache, respawnN = {}, {} -- ore -> seconds or false / samples behind it
+local groupOf -- node name -> the sorted names in its group (only grouped ones); nil = stale
+
+local function Groups()
+	if groupOf then return groupOf end
+	local parent, together = {}, {}
+	local function Root(a)
+		while parent[a] ~= a do a = parent[a] end
+		return a
+	end
+	for _, s in ipairs(ns.db.spots) do
+		local names = {}
+		for name in pairs(s.ores) do names[#names + 1] = name end
+		if #names > 1 then
+			table.sort(names)
+			for i = 1, #names - 1 do
+				for j = i + 1, #names do
+					local a, b = names[i], names[j]
+					local key = a .. "\n" .. b
+					together[key] = (together[key] or 0) + 1
+					if together[key] == SHARED_MIN then
+						parent[a], parent[b] = parent[a] or a, parent[b] or b
+						local ra, rb = Root(a), Root(b)
+						if ra ~= rb then parent[rb] = ra end
+					end
+				end
+			end
+		end
+	end
+	local members = {}
+	for name in pairs(parent) do
+		local r = Root(name)
+		members[r] = members[r] or {}
+		table.insert(members[r], name)
+	end
+	groupOf = {}
+	for _, list in pairs(members) do
+		table.sort(list)
+		for _, name in ipairs(list) do groupOf[name] = list end
+	end
+	return groupOf
+end
+
+-- The vein types whose samples count for `ore`: its group, or just itself.
+function ns:RespawnGroup(ore)
+	return Groups()[ore] or { ore }
+end
+
+-- New spots or ores can join groups: work them out again when next needed.
+ns:On("VK_DATA", function()
+	groupOf = nil
+	wipe(respawnCache)
+end)
 
 local function Learn(ore, sec)
 	if sec <= MULTITAP_SEC or sec > RESPAWN_MAX_SEC then return end
@@ -202,26 +261,33 @@ local function Learn(ore, sec)
 	end
 	list[#list + 1] = floor(sec)
 	if #list > RESPAWN_KEEP then table.remove(list, 1) end
-	respawnCache[ore] = nil
+	wipe(respawnCache) -- every type in its group
 end
 
 -- Seconds a vein of this ore takes to respawn, and how many samples back it
 -- (0: the setting).
 function ns:Respawn(ore)
 	local est = respawnCache[ore]
-	local list = self.db.respawn[ore]
 	if est == nil then
-		est = false
-		if list and #list >= RESPAWN_MIN_N then
-			local sorted = {}
-			for i, v in ipairs(list) do sorted[i] = v end
-			table.sort(sorted)
-			est = sorted[max(1, floor(#sorted / 4 + 0.5))]
+		local pooled = {}
+		for _, name in ipairs(self:RespawnGroup(ore)) do
+			for _, v in ipairs(self.db.respawn[name] or {}) do pooled[#pooled + 1] = v end
 		end
-		respawnCache[ore] = est
+		est = false
+		if #pooled >= RESPAWN_MIN_N then
+			table.sort(pooled)
+			est = pooled[max(1, floor(#pooled / 4 + 0.5))]
+		end
+		respawnCache[ore], respawnN[ore] = est, #pooled
 	end
-	if est then return est, #list end
+	if est then return est, respawnN[ore] end
 	return self.db.settings.readyMin * 60, 0
+end
+
+-- Samples so far for `ore`'s group, learned or not.
+function ns:RespawnSamples(ore)
+	self:Respawn(ore)
+	return respawnN[ore] or 0
 end
 
 -- This spot's respawn: its ore's, or sooner if it has come back faster.

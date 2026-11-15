@@ -56,10 +56,18 @@ local function Respawns()
 	end
 	table.sort(ores)
 	ns:Print(L["learned respawn times (until 3 samples, %d min):"], ns.db.settings.readyMin)
+	-- one line per group of types sharing spawn points (their samples are pooled)
+	local listed = {}
 	for _, ore in ipairs(ores) do
-		local sec, n = ns:Respawn(ore)
-		print(("  %s: ~%s (%s)"):format(ns:NodeLabel(ore), ns:FormatTime(sec),
-			n > 0 and L["%d samples"]:format(n) or L["%d sample(s) so far, using the setting"]:format(#ns.db.respawn[ore])))
+		local group = ns:RespawnGroup(ore)
+		if not listed[group[1]] then
+			listed[group[1]] = true
+			local labels = {}
+			for i, name in ipairs(group) do labels[i] = ns:NodeLabel(name) end
+			local sec, n = ns:Respawn(ore)
+			print(("  %s: ~%s (%s)"):format(table.concat(labels, " / "), ns:FormatTime(sec),
+				n > 0 and L["%d samples"]:format(n) or L["%d sample(s) so far, using the setting"]:format(ns:RespawnSamples(ore))))
+		end
 	end
 end
 

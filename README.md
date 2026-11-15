@@ -46,6 +46,7 @@ Open settings with `/vk`, the minimap button, the world map button (top right) o
 | `/vk route` / `route off` | Start / stop a farm route through this zone (`/vk next` skips a stop) |
 | `/vk export [zone]` | Your spots (those shown, or this zone's) as text to share |
 | `/vk import` | Merge someone's export into your spots |
+| `/vk respawn` | Learned respawn times, one line per group of vein types sharing spawn points |
 | `/vk yield` / `yield reset` | Average loot a visit per vein type, and this session's |
 | `/vk near` | List the closest spots |
 | `/vk only <ore>` | Show one ore only (`/vk only all` to reset) |
