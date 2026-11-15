@@ -27,6 +27,8 @@ local function Help()
 		"/vk  settings window",
 		"/vk next  waypoint to the nearest spot likely back (also a key binding)",
 		"/vk route | route off  farm route: a loop through this zone's spots, the waypoint moving on as you mine",
+		"/vk export [zone]  your spots (shown ones, or this zone's) as text to share",
+		"/vk import  merge someone's export into your spots",
 		"/vk near  list the closest spots",
 		"/vk only <ore>  show one ore only (/vk only all to reset)",
 		"/vk ignore <node> | unignore <node>  stop / resume recording a node type",
@@ -35,7 +37,7 @@ local function Help()
 		"/vk respawn  learned respawn times per ore",
 		"/vk inrange ring | hide | icon  spots in view with Find Minerals on",
 		"/vk prune [days]  delete single-visit spots older than [30] days",
-		"/vk clear zone | seen | all  delete spots (seen = only seen on the minimap, never mined)",
+		"/vk clear zone | seen | imported | all  delete spots (seen: never mined; imported: not visited since)",
 		"/vk cpu  measure VeinKeeper's CPU use for 30 seconds",
 	}) do
 		print("  " .. line)
@@ -125,6 +127,10 @@ local function Clear(arg)
 	if arg == "seen" then
 		return ns:Print("removed %d never-mined spots.", ns:RemoveSpots(function(s) return not s.last end))
 	end
+	if arg == "imported" then
+		return ns:Print("removed %d imported spots you haven't mined or seen.",
+			ns:RemoveSpots(function(s) return s.imported and not s.last and not s.seenAt end))
+	end
 	if arg ~= "zone" then return Help() end
 	local mapID = C_Map.GetBestMapForUnit("player")
 	ns:Print("removed %d spots in this zone.", ns:RemoveSpots(function(s) return s.map == mapID end))
@@ -169,6 +175,10 @@ SlashCmdList.VEINKEEPER = function(msg)
 		ns:Next()
 	elseif cmd == "route" then
 		if arg == "off" or arg == "stop" then ns:StopRoute() else ns:StartRoute() end
+	elseif cmd == "export" then
+		ns:ShowExport(arg == "zone")
+	elseif cmd == "import" then
+		ns:ShowImport()
 	elseif cmd == "near" then
 		Near()
 	elseif cmd == "respawn" then

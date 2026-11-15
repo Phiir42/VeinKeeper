@@ -7,6 +7,7 @@
 --   lastOre        the node name the pin shows
 --   first, last    time() first saved / last mined (last is nil if never mined)
 --   seenAt         time() its Find Minerals dot was last hovered
+--   imported       time() it came from another player's export (see Share.lua)
 --   visits, taps   separate visits / total mining casts
 --   minGap         shortest time between two visits: an upper bound on respawn
 --   gx, gy, gN     the average of where you stood to mine, over gN visits
@@ -229,7 +230,7 @@ function ns:SpotRespawn(spot) return SpotRespawn(spot) end
 -- Seconds until the spot is likely back (<= 0: likely up now). A vein seen
 -- on the minimap since it was last mined counts as up.
 function ns:Wait(spot)
-	if SeenUp(spot) then return 0 end
+	if SeenUp(spot) or not spot.last then return 0 end -- never mined: imported
 	return SpotRespawn(spot) - (time() - spot.last)
 end
 
@@ -446,7 +447,7 @@ end
 -- hover estimate.
 local function Fold(into, s)
 	for name in pairs(s.ores) do into.ores[name] = into.ores[name] or 0 end
-	into.seenAt = max(into.seenAt or 0, s.seenAt or 0)
+	if s.seenAt then into.seenAt = max(into.seenAt or 0, s.seenAt) end
 	if into.map == s.map and s.hErr then AddHover(into, s.hx, s.hy, s.hErr, s.hBest) end
 end
 
@@ -531,6 +532,38 @@ function ns:RecordSeen(name, wx, wy, inst, mapID, x, y, slop, err)
 		self:Restyle()
 	end
 end
+
+-- A spot from another player's export: `names` (node names, at least one)
+-- at x, y on mapID, `err` yards good. A spot you have of the same vein (within
+-- both errors) gains its ores, and its position if you've never mined it;
+-- otherwise it's saved as a new never-mined spot, flagged imported. Returns
+-- true for a new spot. Doesn't fire VK_DATA: the caller does, once.
+function ns:ImportSpot(mapID, x, y, err, names, now)
+	local wx, wy, inst = self:MapToWorld(mapID, x, y)
+	local name = names[1]
+	local function Skip(s, d)
+		if d > Gate(err, SpotErr(s)) then return true end
+		for _, n in ipairs(names) do
+			if s.ores[n] then return false end
+		end
+		return d > GATE_MIN -- another ore: only a shared spawn point this close
+	end
+	local spot = Closest(wx, wy, inst, mapID, x, y, name, SEEN_REACH, nil, Skip)
+	if spot then
+		for _, n in ipairs(names) do spot.ores[n] = spot.ores[n] or 0 end
+		if not spot.last and spot.map == mapID then AddHover(spot, x, y, err) end
+		return false
+	end
+	NewSpot(mapID, x, y, wx, wy, inst, name, false, now)
+	local new = self.db.spots[#self.db.spots]
+	new.seenAt, new.imported = nil, now
+	for _, n in ipairs(names) do new.ores[n] = 0 end
+	AddHover(new, x, y, err)
+	return true
+end
+
+-- Yards a spot's position may be off (for exports).
+function ns:SpotErr(spot) return SpotErr(spot) end
 
 -- At load: fold never-mined spots into a nearby spot with the same ore,
 -- mined ones first (cleans up hovers saved before they were merged).
@@ -755,7 +788,7 @@ end
 ---------------------------------------------------------------------------
 local function Stale(days)
 	local cutoff = time() - days * 86400
-	return function(s) return s.visits <= 1 and max(s.last or 0, s.seenAt or 0) < cutoff end
+	return function(s) return s.visits <= 1 and max(s.last or 0, s.seenAt or 0, s.imported or 0) < cutoff end
 end
 
 function ns:Prune(days)

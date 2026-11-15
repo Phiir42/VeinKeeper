@@ -6,113 +6,19 @@ checks the loop ordering and how the route moves on as you mine and walk.
     pip install lupa
     python tools/test_route.py
 """
-import math, os, random, sys
+import math, random
+from itertools import permutations
 
-try:
-    import lupa.lua51 as lupa_lua
-except ImportError:
-    try:
-        import lupa as lupa_lua
-    except ImportError:
-        sys.exit("needs lupa: pip install lupa")
+import sandbox
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ADDON = os.path.join(ROOT, "VeinKeeper")
 FILES = ["Core.lua", "Data.lua", "Spots.lua", "Pins.lua", "Route.lua", "Commands.lua"]
-
-# Zone map 1 is a 1000 x 1000 yd square at world (0, 0) on continent 0, so
-# map x, y = world yards / 1000.
-STUBS = r"""
-local noop = function() end
-local function Obj()
-  return setmetatable({}, { __index = function(t, k)
-    return function(self, ...)
-      if k == "GetSize" then return 1000, 1000 end
-      if k == "CreateLine" or k == "CreateTexture" or k == "CreateFontString" then
-        local o = Obj(); o.shown = false
-        o.Show = function(s) s.shown = true end
-        o.Hide = function(s) s.shown = false end
-        made = made or {}; made[#made + 1] = o
-        return o
-      end
-      return nil
-    end
-  end })
-end
-CreateFrame = function() return Obj() end
-clock = 1000000
-time = function() return clock end
-debugprofilestop = function() return 0 end
-printed = {}
-DEFAULT_CHAT_FRAME = { AddMessage = function(_, m) printed[#printed + 1] = m end }
-print = function(m) printed[#printed + 1] = m end
-tickers = {}
-C_Timer = {
-  After = noop,
-  NewTicker = function(_, fn) local t = { fn = fn, Cancel = function(s) s.cancelled = true end }
-    tickers[#tickers + 1] = t; return t end,
-}
-player = { x = 0.5, y = 0.5 }
-C_Map = {
-  GetBestMapForUnit = function() return 1 end,
-  GetPlayerMapPosition = function() return { GetXY = function() return player.x, player.y end } end,
-  GetWorldPosFromMapPos = function(_, v) return 0, { GetXY = function() return v.x * 1000, v.y * 1000 end } end,
-  GetMapInfo = function(id) return { name = "Testzone", mapType = 3 } end,
-}
-CreateVector2D = function(x, y) return { x = x, y = y } end
-C_Spell = { GetSpellName = function(id) return id == 2575 and "Mining" or "Other" end }
-GetNumSkillLines = function() return 0 end
-StaticPopupDialogs = {}
-SlashCmdList = {}
-YES, NO = "Yes", "No"
-UISpecialFrames = {}
-tinsert = table.insert
-wipe = function(t) for k in pairs(t) do t[k] = nil end return t end
-GameTooltip = Obj()
-waypoints = {}
-TomTom = { AddWaypoint = function(_, map, x, y, o) waypoints[#waypoints + 1] = { x = x, y = y }; return #waypoints end,
-           RemoveWaypoint = noop }
-CreateFromMixins = function(...) local t = {} for _, m in ipairs({...}) do for k, v in pairs(m) do t[k] = v end end return t end
-MapCanvasDataProviderMixin = { GetMap = function(self) return self.owningMap end }
-MapCanvasPinMixin = {}
-WorldMapFrame = {
-  shown = true,
-  IsShown = function(s) return s.shown end,
-  AddDataProvider = function(s, p) p.owningMap = s.map; s.provider = p end,
-  EnumeratePinsByTemplate = function() return function() end end,
-}
-WorldMapFrame.map = {
-  GetMapID = function() return 1 end,
-  GetCanvas = function() return Obj() end,
-  GetCanvasScale = function() return 1 end,
-  RemoveAllPinsByTemplate = noop,
-}
-UnitOnTaxi = function() return false end
-Minimap = Obj()
-"""
 
 
 def main():
-    lua = lupa_lua.LuaRuntime(unpack_returned_tuples=True)
-    lua.execute(STUBS)
-    ns = lua.eval("{}")
-    for f in FILES:
-        with open(os.path.join(ADDON, f), encoding="utf-8") as fh:
-            chunk = lua.execute("return function(src, name) return assert(loadstring(src, name)) end")(fh.read(), "@" + f)
-        chunk("VeinKeeper", ns)
-    lua.globals().ns = ns
-    lua.execute("""
-      ns:Fire('ADDON_LOADED', 'VeinKeeper')  -- the frame's OnEvent isn't run by stubs
-    """)
-    # ns:On registered the handlers; call them through ns:Fire like real events
-    lua.execute("ns:Fire('PLAYER_LOGIN')")
+    lua = sandbox.load(FILES)
     G = lua.globals()
-    failures = []
-
-    def check(cond, msg):
-        print(("ok   " if cond else "FAIL ") + msg)
-        if not cond:
-            failures.append(msg)
+    check = sandbox.Checks()
+    failures = check.failures
 
     # ---- ordering -------------------------------------------------------
     order_loop = lua.eval("function(pts, px, py) local t = {} for i, p in ipairs(pts) do t[i] = { wx = p[1], wy = p[2], id = i } end "
@@ -135,7 +41,6 @@ def main():
 
     # random zones: no 2-opt move left, never worse than nearest neighbour,
     # and close to optimal on small sets (brute force)
-    from itertools import permutations
     for trial in range(30):
         n = rnd.choice([2, 3, 5, 7, 8, 25, 60])
         pts = [(rnd.uniform(0, 1000), rnd.uniform(0, 1000)) for _ in range(n)]
@@ -254,9 +159,7 @@ def main():
     lua.execute("ns.db.spots = {} ns:Changed() ns:StartRoute()")
     check("needs 2 or more" in G.printed[len(G.printed)], "empty zone: explains why")
 
-    print()
-    print("%d failed" % len(failures) if failures else "all passed")
-    sys.exit(1 if failures else 0)
+    check.finish()
 
 
 if __name__ == "__main__":

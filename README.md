@@ -30,6 +30,7 @@ A lightweight World of Warcraft: Forever addon that remembers every ore vein you
 - `/vk route`, or a key under Key Bindings > AddOns: a farm route, a short loop through every spot in your zone you can mine, drawn on the world map. The waypoint moves on when you mine a stop, reach one that isn't back yet, or walk past one that was empty; veins you find on the way join the loop. Works with the ore filter.
 - `/vk next`, or a key under Key Bindings > AddOns: a waypoint to the nearest spot likely back. Ask again at an empty spot and it skips it.
 - Ore filter: show just one ore, all its vein types together. Use the world map button's right-click menu, the settings window, or `/vk only thorium`.
+- Share spots: `/vk export` (or Export in the settings window) gives your spots as text to copy into Discord or a forum post; `/vk import` merges someone's text into yours. Only positions and ores travel, never your timers. New spots arrive as blue rings and become yours once you mine them; `/vk clear imported` removes the ones you never visited.
 - `/vk prune [days]`: delete spots visited only once and not seen for 30 days (or `[days]`).
 
 **Light on your game:** no work while you stand still, nothing while the world map is closed, and no libraries.
@@ -42,6 +43,8 @@ Open settings with `/vk`, the minimap button, the world map button (top right) o
 |---|---|
 | `/vk next` | Waypoint to the nearest spot likely back |
 | `/vk route` / `route off` | Start / stop a farm route through this zone (`/vk next` skips a stop) |
+| `/vk export [zone]` | Your spots (those shown, or this zone's) as text to share |
+| `/vk import` | Merge someone's export into your spots |
 | `/vk near` | List the closest spots |
 | `/vk only <ore>` | Show one ore only (`/vk only all` to reset) |
 | `/vk ignore <node>` / `unignore <node>` | Stop / resume recording a node type |
@@ -49,7 +52,7 @@ Open settings with `/vk`, the minimap button, the world map button (top right) o
 | `/vk ready <minutes>`, `edge <0-10>` | Respawn timer, rim pin count |
 | `/vk inrange ring \| hide \| icon` | How spots in view look with Find Minerals on |
 | `/vk prune [days]` | Delete single-visit spots older than 30 days |
-| `/vk clear zone \| seen \| all` | Delete spots |
+| `/vk clear zone \| seen \| imported \| all` | Delete spots |
 | `/vk cpu` | Measure VeinKeeper's CPU use for 30 seconds |
 | `/vk help` | List all commands |
 

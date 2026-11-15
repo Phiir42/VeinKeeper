@@ -83,7 +83,7 @@ function ns:AddSummaries(tt, list)
 		if self:SeenUp(spot) then
 			state = "seen up " .. self:FormatTime(time() - spot.seenAt) .. " ago"
 		elseif not spot.last then
-			state = "seen, not mined"
+			state = spot.seenAt and "seen, not mined" or "imported"
 		elseif ready then
 			state = "likely back"
 		else
@@ -106,8 +106,10 @@ function ns:ShowTooltip(owner, spot, nearby, noClick)
 	local r, g, b, ready = self:Freshness(spot)
 	if spot.last then
 		tt:AddDoubleLine("Last mined", self:FormatTime(time() - spot.last) .. " ago", 1, 1, 1, r, g, b)
-	else
+	elseif spot.seenAt then
 		tt:AddLine("Seen on the minimap, not mined yet", r, g, b)
+	else
+		tt:AddLine("Imported, not mined or seen yet", r, g, b)
 	end
 	if self:SeenUp(spot) then
 		tt:AddDoubleLine("Seen up", self:FormatTime(time() - spot.seenAt) .. " ago", 1, 1, 1, r, g, b)
