@@ -35,6 +35,7 @@ local function Help()
 		"/vk map | minimap | icons | skill | seen | button  toggle a setting",
 		"/vk ready <minutes> | edge <0-10>  respawn until learned, rim pin count",
 		"/vk respawn  learned respawn times per ore",
+		"/vk yield | yield reset  average loot a visit per vein type, and this session's",
 		"/vk inrange ring | hide | icon  spots in view with Find Minerals on",
 		"/vk prune [days]  delete single-visit spots older than [30] days",
 		"/vk clear zone | seen | imported | all  delete spots (seen: never mined; imported: not visited since)",
@@ -181,6 +182,8 @@ SlashCmdList.VEINKEEPER = function(msg)
 		ns:ShowImport()
 	elseif cmd == "near" then
 		Near()
+	elseif cmd == "yield" then
+		if arg == "reset" then StaticPopup_Show("VEINKEEPER_YIELD_RESET") else ns:PrintYield() end
 	elseif cmd == "respawn" then
 		Respawns()
 	elseif cmd == "only" and arg ~= "" then

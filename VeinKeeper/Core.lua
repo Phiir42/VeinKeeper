@@ -137,6 +137,7 @@ ns:On("ADDON_LOADED", function(name)
 	db.spots = db.spots or {}
 	db.ignore = db.ignore or {}
 	db.names = db.names or {} -- node names in the client's language -> English (learned when mining)
+	db.yield = db.yield or {} -- node name -> loot counts (see Yield.lua)
 	db.respawn = db.respawn or {} -- ore -> recent respawn upper bounds in seconds (see Spots.lua)
 	db.settings = db.settings or {}
 	for k in pairs(db.settings) do

@@ -42,5 +42,8 @@ jobs:
       - name: Export / import
         run: python tools/test_share.py
 
+      - name: Yield
+        run: python tools/test_yield.py
+
       - name: Spatial index
         run: python tools/test_index.py

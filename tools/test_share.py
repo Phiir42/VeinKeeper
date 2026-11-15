@@ -7,7 +7,7 @@ import re, time
 
 import sandbox
 
-FILES = ["Core.lua", "Data.lua", "Spots.lua", "Pins.lua", "Share.lua", "Route.lua", "Commands.lua"]
+FILES = ["Core.lua", "Data.lua", "Spots.lua", "Pins.lua", "Share.lua", "Yield.lua", "Route.lua", "Commands.lua"]
 
 
 def player(lua):

@@ -36,8 +36,8 @@ read_globals = {
 	"C_AddOnProfiler", "C_Item", "C_Map", "C_Minimap", "C_Spell", "C_SuperTrack", "C_Timer", "Enum",
 	-- functions
 	"CollapseSkillHeader", "CreateFrame", "CreateFromMixins", "CreateVector2D", "debugprofilestop",
-	"ExpandSkillHeader", "GetCVar", "GetCursorPosition", "GetItemIcon", "GetItemInfo", "GetLootSourceInfo",
-	"GetMinimapShape", "GetNumLootItems", "GetNumSkillLines", "GetPlayerFacing", "GetSkillLineInfo",
+	"ExpandSkillHeader", "GetCVar", "GetCursorPosition", "GetItemIcon", "GetItemInfo", "GetLootSlotInfo",
+	"GetLootSlotLink", "GetLootSourceInfo", "GetMinimapShape", "GetNumLootItems", "GetNumSkillLines", "GetPlayerFacing", "GetSkillLineInfo",
 	"GetSpellInfo", "GetSpellTexture", "GetTime", "GetTrackingTexture", "IsIndoors", "IsShiftKeyDown",
 	"issecretvalue", "StaticPopup_Show", "time", "tinsert", "ToggleDropDownMenu", "UIDropDownMenu_AddButton",
 	"UIDropDownMenu_CreateInfo", "UIDropDownMenu_Initialize", "UnitGUID", "UnitOnTaxi", "wipe",

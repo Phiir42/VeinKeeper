@@ -11,7 +11,7 @@ from itertools import permutations
 
 import sandbox
 
-FILES = ["Core.lua", "Data.lua", "Spots.lua", "Pins.lua", "Route.lua", "Commands.lua"]
+FILES = ["Core.lua", "Data.lua", "Spots.lua", "Pins.lua", "Yield.lua", "Route.lua", "Commands.lua"]
 
 
 def main():

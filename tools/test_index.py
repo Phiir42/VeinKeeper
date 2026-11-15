@@ -13,7 +13,7 @@ import random, subprocess, sys, time
 
 import sandbox
 
-FILES = ["Core.lua", "Data.lua", "Spots.lua", "Pins.lua", "Share.lua", "Route.lua", "Commands.lua"]
+FILES = ["Core.lua", "Data.lua", "Spots.lua", "Pins.lua", "Share.lua", "Yield.lua", "Route.lua", "Commands.lua"]
 NODES = ["Copper Vein", "Tin Vein", "Silver Vein"]
 
 # zone k is the 1000 x 1000 yd square at world x (k - 1) * 1000 (zone 999 has

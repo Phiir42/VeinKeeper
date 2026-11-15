@@ -13,6 +13,7 @@ Data.lua
 Spots.lua
 Pins.lua
 Share.lua
+Yield.lua
 WorldMap.lua
 WorldMap.xml
 Route.lua

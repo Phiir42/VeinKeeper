@@ -121,6 +121,8 @@ function ns:ShowTooltip(owner, spot, nearby, noClick)
 		tt:AddDoubleLine("Respawn", "~" .. self:FormatTime(sec) .. (n > 0 and (" (learned, %d)"):format(n) or " (setting)"),
 			1, 1, 1, GREY, GREY, GREY)
 	end
+	local yield = self:YieldText(ore)
+	if yield then tt:AddDoubleLine("Yield", yield, 1, 1, 1, GREY, GREY, GREY) end
 	if spot.minGap then
 		tt:AddDoubleLine("Fastest here", "<= " .. self:FormatTime(spot.minGap), 1, 1, 1, GREY, GREY, GREY)
 	end
