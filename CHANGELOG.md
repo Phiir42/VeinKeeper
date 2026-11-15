@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.16
 
 **New**
 - `/vk probe`: a diagnostic of what the game lets addons read. It prints the client build and secret-restriction state, then reports every way of reading a hovered minimap dot's tooltip (its lines, its tooltip data, and what the game passed to it), then what a mined vein's cast, soft target and loot source show. Nothing is saved.
