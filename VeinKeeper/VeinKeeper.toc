@@ -14,6 +14,7 @@ Spots.lua
 Pins.lua
 WorldMap.lua
 WorldMap.xml
+Route.lua
 Minimap.lua
 Buttons.lua
 Config.lua

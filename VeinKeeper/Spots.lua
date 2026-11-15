@@ -224,11 +224,27 @@ local function SpotRespawn(spot)
 	return spot.minGap and min(sec, spot.minGap) or sec
 end
 
+function ns:SpotRespawn(spot) return SpotRespawn(spot) end
+
 -- Seconds until the spot is likely back (<= 0: likely up now). A vein seen
 -- on the minimap since it was last mined counts as up.
 function ns:Wait(spot)
 	if SeenUp(spot) then return 0 end
 	return SpotRespawn(spot) - (time() - spot.last)
+end
+
+-- Spots found empty this session (by /vk next or a farm route): skipped for
+-- one respawn timer from then.
+local checked = setmetatable({}, { __mode = "k" }) -- spot -> time() found empty
+
+function ns:MarkEmpty(spot) checked[spot] = time() end
+
+-- Wait, counting a spot found empty as mined then.
+function ns:WaitChecked(spot)
+	local wait = self:Wait(spot)
+	local t = checked[spot]
+	if t then wait = max(wait, SpotRespawn(spot) - (time() - t)) end
+	return wait
 end
 
 -- r, g, b, ready. Red right after mining, fading to yellow, then green;
@@ -380,7 +396,8 @@ function ns:Record(name, guid)
 		local new = self.db.spots[#self.db.spots]
 		if guid then nodeAt[new] = guid end
 		Absorb(new)
-		return self:Changed()
+		self:Changed()
+		return self:Fire("VK_MINED", new)
 	end
 
 	local firstMine = not spot.last
@@ -415,6 +432,7 @@ function ns:Record(name, guid)
 	-- a hover of this vein saved as its own "seen" spot is this one
 	Absorb(spot)
 	self:Changed()
+	self:Fire("VK_MINED", spot)
 end
 
 local function SharesOre(a, b)
@@ -699,23 +717,20 @@ ns:On("UNIT_SPELLCAST_INTERRUPTED", CastEnded, "player")
 -- at a "ready" spot means it wasn't there (else you'd be mining it), so that
 -- spot is skipped for one respawn timer.
 ---------------------------------------------------------------------------
-local checked = {} -- spot -> time() found empty, this session only
-
+-- With a farm route running, /vk next skips to the route's next stop.
 function ns:Next()
+	if self:RouteActive() then return self:RouteSkip() end
 	local wx, wy, inst = self:PlayerWorld()
 	if not wx then return self:Print("no position here.") end
-	local now = time()
 	local best, bestD, soonest
 	for _, s in ipairs(self.db.spots) do
 		if s.wx and s.inst == inst and self:IsShown(s) and self:CanMine(s) then
 			local dx, dy = s.wx - wx, s.wy - wy
 			local d = sqrt(dx * dx + dy * dy)
-			local wait = self:Wait(s)
-			local readySec = SpotRespawn(s)
-			if checked[s] then wait = max(wait, readySec - (now - checked[s])) end
+			local wait = self:WaitChecked(s)
 			if wait <= 0 and d < AT_SPOT_YARDS then
-				checked[s] = now
-				wait = readySec
+				self:MarkEmpty(s)
+				wait = SpotRespawn(s)
 			end
 			if wait <= 0 then
 				if not bestD or d < bestD then best, bestD = s, d end

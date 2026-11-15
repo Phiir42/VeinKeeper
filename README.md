@@ -27,6 +27,7 @@ A lightweight World of Warcraft: Forever addon that remembers every ore vein you
 - Spots above your Mining skill are dimmed.
 
 **Tools**
+- `/vk route`, or a key under Key Bindings > AddOns: a farm route, a short loop through every spot in your zone you can mine, drawn on the world map. The waypoint moves on when you mine a stop, reach one that isn't back yet, or walk past one that was empty; veins you find on the way join the loop. Works with the ore filter.
 - `/vk next`, or a key under Key Bindings > AddOns: a waypoint to the nearest spot likely back. Ask again at an empty spot and it skips it.
 - Ore filter: show just one ore, all its vein types together. Use the world map button's right-click menu, the settings window, or `/vk only thorium`.
 - `/vk prune [days]`: delete spots visited only once and not seen for 30 days (or `[days]`).
@@ -40,6 +41,7 @@ Open settings with `/vk`, the minimap button, the world map button (top right) o
 | Command | What it does |
 |---|---|
 | `/vk next` | Waypoint to the nearest spot likely back |
+| `/vk route` / `route off` | Start / stop a farm route through this zone (`/vk next` skips a stop) |
 | `/vk near` | List the closest spots |
 | `/vk only <ore>` | Show one ore only (`/vk only all` to reset) |
 | `/vk ignore <node>` / `unignore <node>` | Stop / resume recording a node type |

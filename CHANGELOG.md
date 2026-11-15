@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+**New**
+- Farm route: `/vk route` (or a key binding, or the world map button's menu) builds a short loop through every spot in your zone you can mine and draws it on the world map, with the leg to the next stop brighter. The waypoint moves on when you mine a stop, reach one that isn't back yet, or walk on from one that was empty. Veins you find while it runs join the loop; `/vk next` skips a stop, `/vk route off` ends it. With the ore filter set, the route only visits that ore.
+- Pin tooltips show a spot's place on the route.
+
 ## 1.2.8
 
 **Fixed**

@@ -127,6 +127,11 @@ function ns:ShowTooltip(owner, spot, nearby, noClick)
 	end
 	local d = self:Distance(spot)
 	if d then tt:AddDoubleLine("Distance", floor(d) .. " yd", 1, 1, 1, GREY, GREY, GREY) end
+	local stop, stops, isNext = self:RouteStop(spot)
+	if stop then
+		tt:AddDoubleLine("Farm route", ("stop %d of %d%s"):format(stop, stops, isNext and ", next" or ""),
+			1, 1, 1, 1, 0.82, 0)
+	end
 
 	if next(spot.ores, next(spot.ores)) then -- more than one ore
 		tt:AddLine(" ")

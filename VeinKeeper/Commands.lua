@@ -26,6 +26,7 @@ local function Help()
 	for _, line in ipairs({
 		"/vk  settings window",
 		"/vk next  waypoint to the nearest spot likely back (also a key binding)",
+		"/vk route | route off  farm route: a loop through this zone's spots, the waypoint moving on as you mine",
 		"/vk near  list the closest spots",
 		"/vk only <ore>  show one ore only (/vk only all to reset)",
 		"/vk ignore <node> | unignore <node>  stop / resume recording a node type",
@@ -166,6 +167,8 @@ SlashCmdList.VEINKEEPER = function(msg)
 		ns:MeasureCPU()
 	elseif cmd == "next" then
 		ns:Next()
+	elseif cmd == "route" then
+		if arg == "off" or arg == "stop" then ns:StopRoute() else ns:StartRoute() end
 	elseif cmd == "near" then
 		Near()
 	elseif cmd == "respawn" then

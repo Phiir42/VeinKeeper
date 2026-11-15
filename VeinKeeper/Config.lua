@@ -136,6 +136,8 @@ local function MenuEntries(withMapItems)
 			s.worldPins = not s.worldPins
 			ns:Changed()
 		end }
+		list[#list + 1] = { text = ns:RouteActive() and "Stop farm route" or "Farm route in my zone",
+			func = function() ns:ToggleRoute() end }
 		list[#list + 1] = { text = "Settings", func = function() ns:ToggleSettings() end }
 	end
 	return list

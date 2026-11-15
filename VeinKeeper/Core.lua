@@ -30,7 +30,8 @@ ns.DEFAULTS = {
 }
 
 BINDING_HEADER_VEINKEEPER = "VeinKeeper"
-BINDING_NAME_VEINKEEPER_NEXT = "Waypoint to the next respawned spot"
+BINDING_NAME_VEINKEEPER_NEXT = "Waypoint to the next respawned spot (on a route: skip a stop)"
+BINDING_NAME_VEINKEEPER_ROUTE = "Start / stop a farm route in this zone"
 BINDING_NAME_VEINKEEPER_TOGGLE = "Show / hide all pins"
 BINDING_NAME_VEINKEEPER_SETTINGS = "Open settings"
 
@@ -40,6 +41,8 @@ BINDING_NAME_VEINKEEPER_SETTINGS = "Open settings"
 --   VK_LOADED  saved variables are ready
 --   VK_DATA    spots, filters or settings changed: rebuild pins
 --   VK_STYLE   only the look changed (opacity, size, freshness): restyle pins
+--   VK_MINED   a spot was just mined (spot); after its VK_DATA
+--   VK_ROUTE   the farm route started, stopped or moved on
 ---------------------------------------------------------------------------
 local handlers = {}
 local frame = CreateFrame("Frame")
