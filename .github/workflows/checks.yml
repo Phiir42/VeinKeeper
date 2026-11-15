@@ -1,0 +1,46 @@
+# On every push and pull request: luacheck the addon (undefined and leaked
+# globals, unused variables; see .luacheckrc) and run the tests in tools/,
+# which load the addon's Lua into Lua 5.1 with stubs for the game API.
+name: Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  luacheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Luacheck
+        uses: lunarmodules/luacheck@v1
+        with:
+          args: VeinKeeper
+
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # test_index.py compares against the v1.2.10 tag
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install lupa
+        run: pip install lupa
+
+      - name: Route
+        run: python tools/test_route.py
+
+      - name: Export / import
+        run: python tools/test_share.py
+
+      - name: Spatial index
+        run: python tools/test_index.py
