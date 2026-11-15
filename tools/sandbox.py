@@ -97,17 +97,25 @@ Minimap = Obj()
 
 
 
-def load(files):
+def load(files, sources=None, before=None):
     """A Lua runtime with `files` (from VeinKeeper/) loaded as the addon, past
-    ADDON_LOADED and PLAYER_LOGIN; the addon table is the global `ns`."""
+    ADDON_LOADED and PLAYER_LOGIN; the addon table is the global `ns`.
+    sources: {file: text} to load instead of the file on disk. before: Lua
+    run before ADDON_LOADED (to set VeinKeeperDB, the saved variables)."""
     lua = lupa_lua.LuaRuntime(unpack_returned_tuples=True)
     lua.execute(STUBS)
     ns = lua.eval("{}")
     compile_ = lua.execute("return function(src, name) return assert(loadstring(src, name)) end")
     for f in files:
-        with open(os.path.join(ADDON, f), encoding="utf-8") as fh:
-            compile_(fh.read(), "@" + f)("VeinKeeper", ns)
+        if sources and f in sources:
+            text = sources[f]
+        else:
+            with open(os.path.join(ADDON, f), encoding="utf-8") as fh:
+                text = fh.read()
+        compile_(text, "@" + f)("VeinKeeper", ns)
     lua.globals().ns = ns
+    if before:
+        lua.execute(before)
     # the stub frame's OnEvent never runs: send the events through ns:Fire
     lua.execute("ns:Fire('ADDON_LOADED', 'VeinKeeper') ns:Fire('PLAYER_LOGIN')")
     return lua

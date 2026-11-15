@@ -263,26 +263,156 @@ end
 ---------------------------------------------------------------------------
 -- Recording
 ---------------------------------------------------------------------------
+-- Spatial index: spots with a world position, in CELL-yard squares per
+-- continent, so finding the spots near a point looks at the 3 x 3 cells
+-- around it instead of every saved spot. Kept up to date as spots are added
+-- (NewSpot), moved (Settle) and removed (RemoveSpots, Forget); rebuilt if the
+-- saved list changed some other way (its length no longer matches).
+--
+-- seq numbers spots in saved order (new spots go on the end and removals
+-- keep the rest in order), so neighbours come back in the order a loop over
+-- the saved list would visit them: merges that move a spot as they go give
+-- the same result as a loop over the whole list.
+---------------------------------------------------------------------------
+local CELL = 80 -- yd; more than SEEN_REACH, the furthest any lookup reaches
+local cells = {}   -- cell key -> { [spot] = true }
+local cellOf = {}  -- spot -> its cell key, or false when it has no world position
+local noWorld = {} -- [spot] = true for spots without a world position
+local seq = {}     -- spot -> place in saved order
+local nextSeq, indexed = 0, 0
+
+local function Key(inst, cx, cy)
+	return ((inst or 0) * 4096 + cx + 2048) * 4096 + cy + 2048
+end
+
+local function CellKey(s)
+	if s.wx then return Key(s.inst, floor(s.wx / CELL), floor(s.wy / CELL)) end
+	return false
+end
+
+local function Index(s)
+	local k = CellKey(s)
+	if k then
+		local c = cells[k]
+		if not c then
+			c = {}
+			cells[k] = c
+		end
+		c[s] = true
+	else
+		noWorld[s] = true
+	end
+	cellOf[s] = k
+	if not seq[s] then
+		nextSeq = nextSeq + 1
+		seq[s] = nextSeq
+	end
+	indexed = indexed + 1
+end
+
+local function Unindex(s, keepSeq)
+	local k = cellOf[s]
+	if k == nil then return end
+	if k then
+		local c = cells[k]
+		c[s] = nil
+		if not next(c) then cells[k] = nil end
+	else
+		noWorld[s] = nil
+	end
+	cellOf[s] = nil
+	if not keepSeq then seq[s] = nil end
+	indexed = indexed - 1
+end
+
+-- After a spot's position changed.
+local function Moved(s)
+	local k = cellOf[s]
+	if k ~= nil and k ~= CellKey(s) then
+		Unindex(s, true)
+		Index(s)
+	end
+end
+
+local function Rebuild()
+	wipe(cells) wipe(cellOf) wipe(noWorld) wipe(seq)
+	nextSeq, indexed = 0, 0
+	for _, s in ipairs(ns.db.spots) do Index(s) end
+end
+
+local function Fresh()
+	if indexed ~= #ns.db.spots then Rebuild() end
+end
+
+local function BySeq(a, b) return seq[a] < seq[b] end
+
+-- Spots with a world position on continent `inst` within CELL yards of wx,
+-- wy (and some a little further), in saved order if `ordered`.
+local function Near(wx, wy, inst, ordered)
+	Fresh()
+	local cx, cy, list = floor(wx / CELL), floor(wy / CELL), {}
+	for i = -1, 1 do
+		for j = -1, 1 do
+			local c = cells[Key(inst, cx + i, cy + j)]
+			if c then
+				for s in pairs(c) do list[#list + 1] = s end
+			end
+		end
+	end
+	if ordered and #list > 1 then table.sort(list, BySeq) end
+	return list
+end
+
+-- Shown spots within r yards of a world position, for other files (a full
+-- scan when r is beyond the index's reach).
+function ns:SpotsNear(wx, wy, inst, r)
+	local out = {}
+	local function Try(s)
+		if s.wx and s.inst == inst and self:IsShown(s) then
+			local dx, dy = s.wx - wx, s.wy - wy
+			if dx * dx + dy * dy < r * r then out[#out + 1] = s end
+		end
+	end
+	if r <= CELL then
+		for _, s in ipairs(Near(wx, wy, inst)) do Try(s) end
+	else
+		for _, s in ipairs(self.db.spots) do Try(s) end
+	end
+	return out
+end
+
+---------------------------------------------------------------------------
 -- The saved spot a position belongs to, if any. Within MERGE_YARDS any ore
 -- matches, so shared spawn points (Tin/Silver, Mithril/Truesilver) become one
 -- spot. Up to `reach` yards, only spots that have this ore and pass `accept`:
 -- hovered positions are rough, so they get a wider net.
 local function Closest(wx, wy, inst, mapID, x, y, name, reach, accept, skip)
 	local best, bestD = nil, max(MERGE_YARDS, reach or 0)
-	for _, s in ipairs(ns.db.spots) do
-		local d
-		if wx and s.wx and s.inst == inst then
-			local dx, dy = s.wx - wx, s.wy - wy
-			d = sqrt(dx * dx + dy * dy)
-		elseif s.map == mapID then
-			-- no world coords: assume a small (1000 yd) zone, so distinct veins
-			-- aren't merged; the worst case is a duplicate pin
-			local dx, dy = (s.x - x) * 1000, (s.y - y) * 1000
-			d = sqrt(dx * dx + dy * dy)
-		end
-		if d and d < bestD and not (skip and skip(s, d))
+	-- the nearest wins; between equally near ones, the first saved
+	local function Try(s, d)
+		if (d < bestD or (best and d == bestD and seq[s] < seq[best])) and not (skip and skip(s, d))
 			and (d < MERGE_YARDS or (s.ores[name] and (not accept or accept(s)))) then
 			best, bestD = s, d
+		end
+	end
+	-- no world coords: assume a small (1000 yd) zone, so distinct veins
+	-- aren't merged; the worst case is a duplicate pin
+	local function TryMap(s)
+		local dx, dy = (s.x - x) * 1000, (s.y - y) * 1000
+		Try(s, sqrt(dx * dx + dy * dy))
+	end
+	if wx then
+		for _, s in ipairs(Near(wx, wy, inst)) do
+			local dx, dy = s.wx - wx, s.wy - wy
+			Try(s, sqrt(dx * dx + dy * dy))
+		end
+		for s in pairs(noWorld) do
+			if s.map == mapID then TryMap(s) end
+		end
+	else
+		Fresh()
+		for _, s in ipairs(ns.db.spots) do
+			if s.map == mapID then TryMap(s) end
 		end
 	end
 	return best, bestD
@@ -302,6 +432,7 @@ local function Settle(spot)
 	spot.x = ((spot.gx or 0) * gw + (spot.hx or 0) * hw) / (gw + hw)
 	spot.y = ((spot.gy or 0) * gw + (spot.hy or 0) * hw) / (gw + hw)
 	spot.wx, spot.wy, spot.inst = ns:MapToWorld(spot.map, spot.x, spot.y)
+	Moved(spot)
 end
 
 local function AddGather(spot, x, y)
@@ -354,6 +485,7 @@ local function NewSpot(mapID, x, y, wx, wy, inst, name, mined, now)
 		visits = mined and 1 or 0, taps = mined and 1 or 0,
 		gx = mined and x or nil, gy = mined and y or nil, gN = mined and 1 or nil,
 	}
+	if indexed == #db.spots - 1 then Index(db.spots[#db.spots]) end -- else Near rebuilds
 	if mined and not db.seenNote then
 		db.seenNote = true
 		ns:Print("saved your first vein (%s). Type /vk for options.", name)
@@ -452,26 +584,28 @@ local function Fold(into, s)
 end
 
 -- Fold every never-mined spot sharing an ore with `spot` and within both
--- their errors into it. Returns true if any went.
-function Absorb(spot)
+-- their errors into it. Returns true if any went. With `gone`, folded spots
+-- are only marked in it (and ones already in it skipped), for the caller to
+-- remove all at once.
+function Absorb(spot, gone)
 	if not spot.wx then return end
 	local err = SpotErr(spot)
-	local gone
-	for _, t in ipairs(ns.db.spots) do
-		if t ~= spot and not t.last and t.wx and t.inst == spot.inst and SharesOre(t, spot) then
+	local own, any = not gone, false
+	gone = gone or {}
+	-- spot moves as others fold in, so its position is read afresh each time
+	for _, t in ipairs(Near(spot.wx, spot.wy, spot.inst, true)) do
+		if t ~= spot and not gone[t] and not t.last and spot.wx and SharesOre(t, spot) then
 			local dx, dy = t.wx - spot.wx, t.wy - spot.wy
 			local reach = Gate(err, SpotErr(t))
 			if dx * dx + dy * dy < reach * reach then
 				Fold(spot, t)
-				gone = gone or {}
 				gone[t] = true
+				any = true
 			end
 		end
 	end
-	if gone then
-		ns:RemoveSpots(function(s) return gone[s] end)
-		return true
-	end
+	if any and own then ns:RemoveSpots(function(s) return gone[s] end) end
+	return any or nil
 end
 
 -- A Find Minerals dot for `name` was hovered around this position, at most
@@ -568,32 +702,28 @@ function ns:SpotErr(spot) return SpotErr(spot) end
 -- At load: fold never-mined spots into a nearby spot with the same ore,
 -- mined ones first (cleans up hovers saved before they were merged).
 local function MergeSeenDuplicates()
-	local present = {}
-	for _, s in ipairs(ns.db.spots) do present[s] = true end
-	local snapshot = {}
-	for i, s in ipairs(ns.db.spots) do snapshot[i] = s end
+	local gone = {}
 	local function pass(mined)
-		for _, s in ipairs(snapshot) do
-			if present[s] and (s.last ~= nil) == mined and Absorb(s) then
-				wipe(present)
-				for _, t in ipairs(ns.db.spots) do present[t] = true end
-			end
+		for _, s in ipairs(ns.db.spots) do
+			if not gone[s] and (s.last ~= nil) == mined then Absorb(s, gone) end
 		end
 	end
 	pass(true)
 	pass(false)
+	if next(gone) then ns:RemoveSpots(function(s) return gone[s] end) end
 end
 
 -- At load: mined spots of the same ore this close are one vein saved twice
 -- (a respawn taken for a neighbour): merge their history and averages.
 local DUPLICATE_YARDS = 6
 local function MergeMinedDuplicates()
-	local spots, gone = ns.db.spots, {}
-	for i, a in ipairs(spots) do
-		for j = i + 1, #spots do
-			local b = spots[j]
-			if not gone[a] and not gone[b] and a.last and b.last and a.wx and b.wx
-				and a.inst == b.inst and a.map == b.map and SharesOre(a, b)
+	local gone = {}
+	for _, a in ipairs(ns.db.spots) do
+		-- spots saved after a and near it, in saved order (a moves as they merge in)
+		local near = a.last and a.wx and not gone[a] and Near(a.wx, a.wy, a.inst, true) or {}
+		for _, b in ipairs(near) do
+			if seq[b] > seq[a] and not gone[a] and not gone[b] and a.last and b.last and a.wx
+				and a.map == b.map and SharesOre(a, b)
 				and (a.wx - b.wx) ^ 2 + (a.wy - b.wy) ^ 2 < DUPLICATE_YARDS * DUPLICATE_YARDS then
 				for name, n in pairs(b.ores) do a.ores[name] = (a.ores[name] or 0) + n end
 				a.visits, a.taps = a.visits + b.visits, a.taps + b.taps
@@ -640,6 +770,7 @@ local function Migrate()
 end
 
 ns:On("VK_LOADED", function()
+	Rebuild()
 	Migrate()
 	MergeMinedDuplicates()
 	MergeSeenDuplicates()
@@ -649,6 +780,7 @@ function ns:Forget(spot)
 	for i, s in ipairs(self.db.spots) do
 		if s == spot then
 			table.remove(self.db.spots, i)
+			Unindex(s)
 			self:Changed()
 			return true
 		end
@@ -663,6 +795,7 @@ function ns:RemoveSpots(drop)
 		spots[i] = nil
 		if drop(s) then
 			n = n + 1
+			Unindex(s)
 		else
 			kept = kept + 1
 			spots[kept] = s

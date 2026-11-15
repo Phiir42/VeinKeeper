@@ -356,15 +356,10 @@ local function Annotate(hx, hy, inst, _, _, scale)
 	if not hx then return end
 	local reach = max(10, 1.5 * HOVER_SLOP_PX / scale)
 	local list
-	for _, spot in ipairs(ns.db.spots) do
-		if spot.wx and spot.inst == inst and ns:IsShown(spot) then
-			local dx, dy = spot.wx - hx, spot.wy - hy
-			local d = dx * dx + dy * dy
-			if d < reach * reach then
-				list = list or {}
-				list[#list + 1] = { spot = spot, d = d }
-			end
-		end
+	for _, spot in ipairs(ns:SpotsNear(hx, hy, inst, reach)) do
+		local dx, dy = spot.wx - hx, spot.wy - hy
+		list = list or {}
+		list[#list + 1] = { spot = spot, d = dx * dx + dy * dy }
 	end
 	if debug then ns:Print("  %d saved spots within %.0f yd of the cursor", list and #list or 0, reach) end
 	if not list then return end
