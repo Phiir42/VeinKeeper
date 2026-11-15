@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.15
 
 **New**
 - Do veins come back where they were? Nothing documents whether WoW Forever respawns a mined vein at the same spot or somewhere else in a zone-wide pool, so VeinKeeper now measures it. Each time you come within 12 yd of a saved spot it notes whether the spot was likely back, and whether you then mined a vein there. `/vk pool` shows, per vein type, how often likely-back and not-back-yet spots had a vein, and what that says: spot timers can be trusted, veins come back across a shared pool, or something in between. Visits in combat or on a flight path aren't counted. `/vk pool reset` starts over.
