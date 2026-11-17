@@ -310,8 +310,6 @@ local function TipText(i)
 	return t
 end
 
-local secretNoted -- told this session that the game hides the dots' names
-
 -- The node names, or false; and whether any line was secret.
 local function ReadTooltip(lines)
 	local owner = GameTooltip:GetOwner()
@@ -363,35 +361,6 @@ local function CursorWorld()
 	return hx, hy, inst, b, mapID, scale, x, y
 end
 
--- The saved spots at a Find Minerals dot, in a tooltip of VeinKeeper's own
--- under the game's (which redraws itself, wiping lines added to it).
--- Matched by distance, not by pin: a mined spot is where you stood, a few
--- yards off the dot, which is many pixels on a zoomed-in minimap.
-local dotTip
-local function Annotate(hx, hy, inst, _, _, scale)
-	if not hx then return end
-	local reach = max(10, 1.5 * HOVER_SLOP_PX / scale)
-	local list
-	for _, spot in ipairs(ns:SpotsNear(hx, hy, inst, reach)) do
-		local dx, dy = spot.wx - hx, spot.wy - hy
-		list = list or {}
-		list[#list + 1] = { spot = spot, d = dx * dx + dy * dy }
-	end
-	if debug then ns:Print("  %d saved spots within %.0f yd of the cursor", list and #list or 0, reach) end
-	if not list then return end
-	table.sort(list, function(a, b) return a.d < b.d end)
-	if not dotTip then
-		dotTip = CreateFrame("GameTooltip", "VeinKeeperDotTooltip", UIParent, "GameTooltipTemplate")
-		GameTooltip:HookScript("OnHide", function() dotTip:Hide() end)
-	end
-	dotTip:SetOwner(GameTooltip, "ANCHOR_NONE")
-	dotTip:ClearAllPoints()
-	dotTip:SetPoint("TOPLEFT", GameTooltip, "BOTTOMLEFT", 0, -2)
-	dotTip:AddLine("VeinKeeper", 0.85, 0.63, 0.4)
-	ns:AddSummaries(dotTip, list)
-	dotTip:Show()
-end
-
 -- Rings let the mouse through to the game's dot, so they get no OnEnter:
 -- find the ring under the cursor by position instead.
 local function RingUnderCursor()
@@ -433,16 +402,10 @@ local function CheckHover()
 	local first, lines = TipText(1), GameTooltip:NumLines()
 	if first ~= lastTip or lines ~= lastTipLines then
 		Flush()
-		if dotTip then dotTip:Hide() end
 		local hidden
 		hoverNames, hidden = ReadTooltip(lines)
 		-- one line: one dot (several dots under the cursor give a line each)
 		if hidden and not hoverNames and lines == 1 then hoverNames = NAMELESS end
-		if hoverNames then Annotate(CursorWorld()) end
-		if hidden and not secretNoted and ns.db.settings.recordSeen then
-			secretNoted = true
-			ns:Print(L["the game hides minimap dot names from addons here: hovering a dot only marks a saved spot as up. New veins are saved when you mine them."])
-		end
 		lastTip, lastTipLines = first, lines
 	end
 	if not (hoverNames and ns.db.settings.recordSeen) then return end

@@ -126,9 +126,6 @@ L["not back yet: %d of %d (%d%%)"] = "尚未重生：%d/%d（%d%%）"
 L["Forget all VeinKeeper visit counts?"] = "清除所有 VeinKeeper 造訪統計？"
 L["visit counts cleared."] = "造訪統計已清除。"
 
--- Minimap.lua
-L["the game hides minimap dot names from addons here: hovering a dot only marks a saved spot as up. New veins are saved when you mine them."] = "遊戲在此處對插件隱藏了小地圖點的名稱：滑鼠指向點只會把已儲存的位置標記為已重生。新礦脈會在你採集時儲存。"
-
 -- Buttons.lua
 L["%d spots saved"] = "已儲存%d個礦點"
 L["Showing only %s"] = "僅顯示%s"

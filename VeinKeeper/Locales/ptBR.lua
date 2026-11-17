@@ -126,9 +126,6 @@ L["not back yet: %d of %d (%d%%)"] = "ainda não voltou: %d de %d (%d%%)"
 L["Forget all VeinKeeper visit counts?"] = "Esquecer todas as contagens de visitas do VeinKeeper?"
 L["visit counts cleared."] = "contagens de visitas apagadas."
 
--- Minimap.lua
-L["the game hides minimap dot names from addons here: hovering a dot only marks a saved spot as up. New veins are saved when you mine them."] = "o jogo oculta aqui dos addons os nomes dos pontos do minimapa: passar o mouse sobre um ponto só marca um local salvo como disponível. Veios novos são salvos quando você os minera."
-
 -- Buttons.lua
 L["%d spots saved"] = "%d locais salvos"
 L["Showing only %s"] = "Mostrando só %s"

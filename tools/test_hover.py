@@ -74,12 +74,10 @@ def main():
     check(spots() == 1 and lua.eval("ns.db.spots[1].lastOre") == "Truesilver Deposit",
           "a readable dot tooltip saves the vein")
 
-    # a secret one: nothing saved, and one notice
+    # a secret one: nothing saved, and nothing printed
     out = hover(None)
     check(spots() == 1, "a secret tooltip saves nothing")
-    check(any("hides minimap dot names" in l for l in out), "and says why: %s" % out)
-    out = hover(None)
-    check(not any("hides minimap dot names" in l for l in out), "only once a session")
+    check(not any("hides minimap dot names" in l for l in out), "and prints no notice: %s" % out)
 
     # /vk debug reads every hover afresh, even identical secret ones
     lua.execute("SlashCmdList.VEINKEEPER('debug')")
@@ -90,16 +88,6 @@ def main():
           "debug shows the line is secret")
     check(any(l.startswith("hover: tooltip owner") or "hover: tooltip owner" in l for l in second),
           "the next identical tooltip is read again (not skipped as unchanged)")
-
-    # the notice isn't shown with hover saving turned off
-    lua2 = sandbox.load(FILES, before=STUBS + "VeinKeeperDB = { settings = { minimapPins = false, recordSeen = false } }")
-    lua2.execute("ns:Fire('PLAYER_ENTERING_WORLD') SlashCmdList.VEINKEEPER('debug') SlashCmdList.VEINKEEPER('debug')")
-    G2 = lua2.globals()
-    n = len(G2.printed)
-    lua2.execute("tipText = SECRET  tipShown = true")
-    for t in list(G2.tickers.values()):
-        t.fn()
-    check(not any("hides minimap" in m for m in list(G2.printed.values())[n:]), "no notice with hover saving off")
 
     nameless(check)
     probe(check)

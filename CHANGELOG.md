@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+**Changed**
+- Hovering a game ore dot on the minimap no longer adds a VeinKeeper tooltip under it; you can already see the vein's name. Rings over veins that are down still show their own tooltip.
+- VeinKeeper no longer prints a notice that the game hides minimap dot names from addons.
+
 ## 1.2.16
 
 **New**

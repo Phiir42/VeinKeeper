@@ -126,9 +126,6 @@ L["not back yet: %d of %d (%d%%)"] = "尚未刷新：%d/%d（%d%%）"
 L["Forget all VeinKeeper visit counts?"] = "清除所有 VeinKeeper 访问统计？"
 L["visit counts cleared."] = "访问统计已清除。"
 
--- Minimap.lua
-L["the game hides minimap dot names from addons here: hovering a dot only marks a saved spot as up. New veins are saved when you mine them."] = "游戏在此处对插件隐藏了小地图点的名称：悬停在点上只会把已保存的位置标记为已刷新。新矿脉会在你采集时保存。"
-
 -- Buttons.lua
 L["%d spots saved"] = "已保存%d个矿点"
 L["Showing only %s"] = "仅显示%s"
