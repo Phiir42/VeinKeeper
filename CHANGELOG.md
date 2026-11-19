@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+**New**
+- Choose which maps show pins: settings has separate toggles under World map pins for the World map, continent maps and zone maps (zone maps include dungeon and sub-zone maps). All are on by default. World map pins stays the switch for all three.
+
 ## 1.2.17
 
 **Changed**

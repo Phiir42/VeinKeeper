@@ -122,9 +122,16 @@ function provider:RefreshAllData(fromOnShow)
 	local map = self:GetMap()
 	local mapID = map:GetMapID()
 	if not mapID then return end
+	local s = ns.db.settings
 	local info = C_Map.GetMapInfo(mapID)
 	if mapID == 947 or (info and info.mapType and info.mapType <= WORLD) then
-		return WorldPins(map, mapID)
+		if s.mapWorld then WorldPins(map, mapID) end
+		return
+	end
+	if info and info.mapType == CONTINENT then
+		if not s.mapContinent then return end
+	elseif not s.mapZone then
+		return
 	end
 	local b = ns:Basis(mapID)
 	for _, spot in ipairs(ns.db.spots) do

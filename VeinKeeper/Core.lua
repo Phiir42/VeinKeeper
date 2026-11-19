@@ -9,6 +9,9 @@ local DB_VERSION = 2
 ns.DEFAULTS = {
 	-- pins
 	worldPins = true,
+	mapWorld = true,      -- world map pins on the World map,
+	mapContinent = true,  -- on continent maps,
+	mapZone = true,       -- and on zone maps (also dungeon and sub-zone maps)
 	minimapPins = true,
 	gameIcons = true,     -- the game's ore item icons (false = VeinKeeper's drawn icons)
 	skillDim = true,      -- dim spots above your Mining skill

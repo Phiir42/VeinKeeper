@@ -4,7 +4,7 @@ local _, ns = ...
 local L = ns.L
 
 local floor = math.floor
-local WIDTH, HEIGHT = 600, 418
+local WIDTH, HEIGHT = 600, 490
 local LEFT, RIGHT = 16, 312 -- column x offsets
 local COL_WIDTH = 272
 
@@ -47,7 +47,8 @@ local function Header(x, y, text)
 	line:SetPoint("TOPLEFT", fs, "BOTTOMLEFT", 0, -3)
 end
 
-local function Check(x, y, label, key, tip, onChange)
+-- parent: a setting this one only matters with; greyed out while it's off
+local function Check(x, y, label, key, tip, onChange, parent)
 	local cb = CreateFrame("CheckButton", NextName("Check"), panel, "UICheckButtonTemplate")
 	cb:SetPoint("TOPLEFT", x - 2, y)
 	cb:SetSize(24, 24)
@@ -63,7 +64,14 @@ local function Check(x, y, label, key, tip, onChange)
 		if onChange then onChange() end
 		ns:Changed()
 	end)
-	cb.Refresh = function() cb:SetChecked(ns.db.settings[key] and true or false) end
+	cb.Refresh = function()
+		cb:SetChecked(ns.db.settings[key] and true or false)
+		if parent then
+			local on = ns.db.settings[parent] and true or false
+			cb:SetEnabled(on)
+			text:SetFontObject(on and "GameFontHighlight" or "GameFontDisable")
+		end
+	end
 	controls[#controls + 1] = cb
 end
 
@@ -219,14 +227,17 @@ local function CreatePanel()
 	-- left: what pins look like
 	Header(LEFT, -36, L["Pins"])
 	Check(LEFT, -56, L["World map pins"], "worldPins")
-	Check(LEFT, -80, L["Minimap pins"], "minimapPins")
-	Check(LEFT, -104, L["Game ore icons"], "gameIcons",
+	Check(LEFT + 20, -80, L["On the World map"], "mapWorld", nil, nil, "worldPins")
+	Check(LEFT + 20, -104, L["On continent maps"], "mapContinent", nil, nil, "worldPins")
+	Check(LEFT + 20, -128, L["On zone maps"], "mapZone", L["Also dungeon and sub-zone maps."], nil, "worldPins")
+	Check(LEFT, -152, L["Minimap pins"], "minimapPins")
+	Check(LEFT, -176, L["Game ore icons"], "gameIcons",
 		L["Off: VeinKeeper's own drawn icons. Season of Discovery quest nodes always use drawn icons."])
-	Check(LEFT, -128, L["Dim spots above my Mining skill"], "skillDim")
-	Slider(LEFT, -162, L["World map opacity"], "worldAlpha", 10, 100, 5, L["%d%%"], 100)
-	Slider(LEFT, -204, L["Minimap opacity"], "minimapAlpha", 10, 100, 5, L["%d%%"], 100)
-	Slider(LEFT, -246, L["World map icon size"], "worldSize", 8, 32, 1, L["%d px"])
-	Slider(LEFT, -288, L["Minimap icon size"], "minimapSize", 8, 24, 1, L["%d px"])
+	Check(LEFT, -200, L["Dim spots above my Mining skill"], "skillDim")
+	Slider(LEFT, -234, L["World map opacity"], "worldAlpha", 10, 100, 5, L["%d%%"], 100)
+	Slider(LEFT, -276, L["Minimap opacity"], "minimapAlpha", 10, 100, 5, L["%d%%"], 100)
+	Slider(LEFT, -318, L["World map icon size"], "worldSize", 8, 32, 1, L["%d px"])
+	Slider(LEFT, -360, L["Minimap icon size"], "minimapSize", 8, 24, 1, L["%d px"])
 
 	-- right: respawns and the minimap
 	Header(RIGHT, -36, L["Respawns & minimap"])
@@ -244,10 +255,10 @@ local function CreatePanel()
 		function(self) ns:ShowFilterMenu(self) end)
 
 	-- bottom: buttons
-	Header(LEFT, -332, L["Buttons"])
-	Header(RIGHT, -332, " ")
-	Check(LEFT, -352, L["Minimap button"], "button", nil, function() ns:UpdateMinimapButton() end)
-	Check(RIGHT, -352, L["World map button"], "mapButton", nil, function() ns:UpdateMapButton() end)
+	Header(LEFT, -404, L["Buttons"])
+	Header(RIGHT, -404, " ")
+	Check(LEFT, -424, L["Minimap button"], "button", nil, function() ns:UpdateMinimapButton() end)
+	Check(RIGHT, -424, L["World map button"], "mapButton", nil, function() ns:UpdateMapButton() end)
 
 	local import = CreateFrame("Button", NextName("Button"), panel, "UIPanelButtonTemplate")
 	import:SetSize(80, 22)
